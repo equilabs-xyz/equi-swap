@@ -149,7 +149,10 @@ export default function TokenSelector({
               <CheckCircle className="w-4 h-4 text-green-500" />
             )}
           </span>
-          <span className="text-xs text-muted-foreground">{token.address}</span>
+          <span
+              className="text-xs text-muted-foreground cursor-pointer">
+  {token.address.slice(0, 10)}...{token.address.slice(-10)}
+</span>
         </div>
       </div>
       <span className="text-sm text-muted-foreground">
@@ -159,7 +162,7 @@ export default function TokenSelector({
   );
 
   return (
-    <div className="w-full space-y-1">
+      <div className="w-full space-y-1">
       {label && (
         <label className="text-sm text-muted-foreground">{label}</label>
       )}

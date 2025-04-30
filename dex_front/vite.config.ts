@@ -28,7 +28,7 @@ export default defineConfig({
     // keep your existing API prox
     proxy: {
       "/api": {
-        target: "http://localhost:7777",
+        target: "http://localhost:7778",
         changeOrigin: true,
         secure: false,
       },

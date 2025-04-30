@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTranslation } from "react-i18next";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {useMediaQuery} from "@/hooks/useMediaQuery.ts";
 
 export default function WalletAssets({
   loading,
@@ -23,9 +24,10 @@ export default function WalletAssets({
       ? tokenAccounts
       : tokenAccounts.filter((token: any) => token.balance > 0);
   const { t } = useTranslation();
+
   return (
-    <ScrollArea className="h-[400px]">
-      <div className="space-y-4">
+      <ScrollArea className="min-h-[20vh] h-[45vh] max-h-[65vh]" >
+      <div className="space-y-2">
         {loading
           ? Array(3)
               .fill(0)

@@ -95,7 +95,7 @@ export default function WalletLayout() {
   }, [showSend, currentToken, tokenAccounts]);
 
   return (
-    <div className="max-w-md mx-auto p-4 space-y-6">
+    <div className="max-w-md mx-auto p-2 space-y-4">
       <WalletHeader publicKey={publicKey} mode={mode} setMode={setMode} />
       <WalletBalanceHeader
         solBalance={solBalance}

@@ -117,7 +117,7 @@ export default function WalletTransactionsTab({
   }, [onIntersection]);
 
   return (
-    <ScrollArea className="h-[475px]">
+    <ScrollArea className="min-h-[180px] h-[30vh] max-h-[500px]">
       <div className="space-y-2">
         {loading && loadedTransactions.length === 0 ? (
           Array(3)
