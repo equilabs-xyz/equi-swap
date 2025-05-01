@@ -227,16 +227,18 @@ pub fn parse_solflare_tx(tx: serde_json::Map<String, Value>, wallet: &Pubkey) ->
         .unwrap_or_default();
 
     // Determine transaction type
-    let tx_type = match tx
-        .get("type")
-        .and_then(|t| t.as_str())
-        .unwrap_or("UNKNOWN")
-    {
-        "RECEIVED_TOKEN" => "RECEIVED",
-        "RECEIVED_SOL" => "RECEIVED",
-        "SENT_TOKEN" => "SENT",
-        "CLOSED_ATA" => "CLOSED ACCOUNT",
-        _ => "UNKNOWN",
+    let tx_type = if let Some(tx_type) = tx.get("type").and_then(|t| t.as_str()) {
+        if tx_type.contains("RECEIVED") {
+            "RECEIVED"
+        } else {
+            match tx_type {
+                "SENT_TOKEN" => "SENT",
+                "CLOSED_ATA" => "CLOSED ACCOUNT",
+                _ => "UNKNOWN",
+            }
+        }
+    } else {
+        "UNKNOWN"
     };
 
     // Parse addresses from transaction details
