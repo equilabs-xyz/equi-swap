@@ -31,6 +31,8 @@ export default function WalletLayout() {
   const queryClient = useQueryClient();
   const hasFetchedRef = useRef(false);
 
+
+
   const {
     solBalance,
     tokenAccounts,
@@ -93,6 +95,18 @@ export default function WalletLayout() {
       setCurrentToken(solToken);
     }
   }, [showSend, currentToken, tokenAccounts]);
+  if (!connected) {
+    return (
+        <div className="grid place-items-center h-screen px-4 text-center">
+          <div className="space-y-2">
+            <p className="text-lg font-medium">Wallet not connected.</p>
+            <p className="text-sm text-muted-foreground">
+              Please connect your wallet to view balances and manage assets.
+            </p>
+          </div>
+        </div>
+    );
+  }
 
   return (
     <div className="max-w-md mx-auto p-2 space-y-4">
