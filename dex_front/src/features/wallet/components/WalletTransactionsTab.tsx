@@ -133,7 +133,7 @@ export default function WalletTransactionsTab({
               </p>
               {txs.map((tx, index) => {
                 const amount = parseFloat(tx.amount ?? "0");
-                const symbol = tx.symbol ?? "UNKNOWN";
+                const symbol = tx.symbol ?? "wallet.unknown";
                 const status =
                   tx.status?.toLowerCase() === "confirmed"
                     ? t("tx.success")
@@ -165,7 +165,11 @@ export default function WalletTransactionsTab({
                         )}
                         <div className="ml-2">
                           <p className="text-sm">
-                            {tx.type} {tx.symbol}
+                            {tx.type === "SENT"
+                                ? t("wallet.sent")
+                                : tx.type === "RECEIVED"
+                                    ? t("wallet.received")
+                                    : t("wallet.unknown")} {tx.symbol}
                           </p>
                           <p className="text-sm text-muted-foreground">
                             {new Date(tx.timestamp * 1000).toLocaleString()}
