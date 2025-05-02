@@ -12,8 +12,15 @@ type SwapState = {
 export const useSwapStore = create<SwapState>((set, get) => ({
   inputToken: null,
   outputToken: null,
-  setInputToken: (token) => set({ inputToken: token }),
-  setOutputToken: (token) => set({ outputToken: token }),
+  setInputToken: (token) => {
+    localStorage.setItem("swap.inputToken", JSON.stringify(token));
+    set({ inputToken: token });
+  },
+  setOutputToken: (token) => {
+    localStorage.setItem("swap.outputToken", JSON.stringify(token));
+    set({ outputToken: token });
+  },
+
   swapTokens: () => {
     const { inputToken, outputToken } = get();
     set({ inputToken: outputToken, outputToken: inputToken });

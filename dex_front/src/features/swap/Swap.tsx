@@ -49,15 +49,37 @@ export default function SwapLayout() {
 
   // Default to SOL -> USDC on first load
   useEffect(() => {
-    if (!inputToken && !outputToken && topTokens.length > 0) {
+    // Only run this once on mount
+    const savedInput = localStorage.getItem("swap.inputToken");
+    const savedOutput = localStorage.getItem("swap.outputToken");
+
+    // If both saved, parse and use them
+    if (savedInput && savedOutput) {
+      try {
+        const parsedInput = JSON.parse(savedInput);
+        const parsedOutput = JSON.parse(savedOutput);
+        if (!inputToken && !outputToken) {
+          setInputToken(parsedInput);
+          setOutputToken(parsedOutput);
+        }
+      } catch (e) {
+        console.error("Failed to parse swap tokens from localStorage", e);
+      }
+    } else if (!inputToken && !outputToken && topTokens.length > 0) {
+      // Fallback to SOL/USDC if nothing in localStorage
       const sol = topTokens.find((t) => t.address === SOL_MINT);
       const usdc = topTokens.find((t) => t.address === USDC_MINT);
       if (sol && usdc) {
         setInputToken(sol);
         setOutputToken(usdc);
+        localStorage.setItem("swap.inputToken", JSON.stringify(sol));
+        localStorage.setItem("swap.outputToken", JSON.stringify(usdc));
       }
     }
-  }, [topTokens, inputToken, outputToken, setInputToken, setOutputToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topTokens]);
+
+
 
   const disableSwap =
     !connected || !inputToken || !outputToken || !form.watch("inputAmount");
