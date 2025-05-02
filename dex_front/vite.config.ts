@@ -1,11 +1,12 @@
 import path from "path";
-import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react-swc";
 import { defineConfig } from "vite";
 
-// https://vite.dev/config/
+// Set env vars to switch HMR host/protocol when needed
+const isRemote = process.env.VITE_USE_REMOTE === "true";
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -14,18 +15,21 @@ export default defineConfig({
   server: {
     host: true,
 
-    // optional: allow all hosts or restrict to specific domains
-    allowedHosts: "all", // <- use this instead of `true`
+    // Allow both localhost and your custom domain
+    allowedHosts: ["localhost", "swap.equilabs.io"],
 
-    // HMR settings
-    hmr: {
-      // Set this only if you're accessing the site via domain (e.g. swap.equilabs.io)
-      host: "localhost", // use "localhost" unless you're accessing from a real domain
-      protocol: "ws",     // don't use "wss" unless you're running on HTTPS
-      port: 5173,
-    },
+    hmr: isRemote
+        ? {
+          host: "swap.equilabs.io",
+          protocol: "wss",
+          port: 443,
+        }
+        : {
+          host: "localhost",
+          protocol: "ws",
+          port: 5173,
+        },
 
-    // keep your existing API prox
     proxy: {
       "/api": {
         target: "http://localhost:7778",
