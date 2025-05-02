@@ -18,8 +18,8 @@ export default defineConfig({
     hmr: isRemote
         ? {
           host: "swap.equilabs.io",
-          protocol: "ws",
-          clientPort: 80, // <-- tell browser to use port 80
+          protocol: "wss",
+          clientPort: 443,
         }
         : {
           host: "localhost",
