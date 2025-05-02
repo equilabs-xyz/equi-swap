@@ -1,32 +1,31 @@
 import path from "path";
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react-swc";
 import { defineConfig } from "vite";
 
-const isRemote = process.env.VITE_USE_REMOTE === "true";
-
+// https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
   },
   server: {
+    // bind to all interfaces so nginx can proxy in
     host: true,
-    allowedHosts: ["localhost", "swap.equilabs.io"],
 
-    hmr: isRemote
-        ? {
-          host: "swap.equilabs.io",
-          protocol: "wss",
-          clientPort: 443,
-        }
-        : {
-          host: "localhost",
-          protocol: "ws",
-          port: 5173,
-        },
+    // whitelist your custom host
+    // you can also use `allowedHosts: true` to allow any host
+    allowedHosts: true,
 
+    // if you use HMR (hot module reload), ensure WebSocket goes through SSL
+    hmr: {
+      host: "swap.equilabs.io",
+      protocol: "ws",
+    },
+
+    // keep your existing API prox
     proxy: {
       "/api": {
         target: "http://localhost:7778",
