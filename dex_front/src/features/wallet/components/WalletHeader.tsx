@@ -3,6 +3,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CopyIcon } from "lucide-react";
 import { useWalletUIStore } from "@/stores/wallet-ui";
 import { useTranslation } from "react-i18next";
+import {toast} from "sonner";
 
 export default function WalletHeader({ publicKey }: any) {
   const { mode, setMode } = useWalletUIStore();
@@ -11,6 +12,7 @@ export default function WalletHeader({ publicKey }: any) {
   const copyAddress = () => {
     if (!publicKey) return;
     navigator.clipboard.writeText(publicKey.toString());
+    toast.success(t("wallet.copied"));
   };
 
   return (

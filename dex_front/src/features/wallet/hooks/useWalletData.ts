@@ -64,6 +64,7 @@ export function useWalletData(publicKey?: PublicKey | null) {
         logoURI: token.imageUri,
         decimals: token.decimals,
       },
+      swappable: token.swappable || false,
       price: token.price || null,
       verified: token.verified || false,
       actions: token.actions || [],
