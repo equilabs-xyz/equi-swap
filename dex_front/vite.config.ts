@@ -2,7 +2,6 @@ import path from "path";
 import react from "@vitejs/plugin-react-swc";
 import { defineConfig } from "vite";
 
-// Set env vars to switch HMR host/protocol when needed
 const isRemote = process.env.VITE_USE_REMOTE === "true";
 
 export default defineConfig({
@@ -14,15 +13,13 @@ export default defineConfig({
   },
   server: {
     host: true,
-
-    // Allow both localhost and your custom domain
     allowedHosts: ["localhost", "swap.equilabs.io"],
 
     hmr: isRemote
         ? {
           host: "swap.equilabs.io",
-          protocol: "wss",
-          port: 443,
+          protocol: "ws", // << use ws for HTTP, not wss
+          port: 80,       // << matches NGINX/public HTTP port
         }
         : {
           host: "localhost",
