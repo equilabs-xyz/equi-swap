@@ -15,7 +15,7 @@ export default function WalletTabs({
 }: any) {
   const { t } = useTranslation();
   return (
-    <Tabs defaultValue="assets" className="space-y-4">
+    <Tabs defaultValue="assets" className="overflow-y-auto]">
       <TabsList className="grid w-full grid-cols-2">
         <TabsTrigger value="assets">{t("wallet.assets")}</TabsTrigger>
         <TabsTrigger value="transactions">

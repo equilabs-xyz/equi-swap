@@ -26,8 +26,8 @@ export default function WalletAssets({
   const { t } = useTranslation();
 
   return (
-      <ScrollArea className="min-h-[20vh] h-[45vh] max-h-[65vh]" >
-      <div className="space-y-2">
+      <ScrollArea className="min-h-[20vh] h-[100vh] max-h-[65vh] pt-4 " >
+      <div className="space-y-2 pb-[100px]">
         {loading
           ? Array(3)
               .fill(0)

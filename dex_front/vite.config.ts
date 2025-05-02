@@ -12,17 +12,17 @@ export default defineConfig({
     },
   },
   server: {
-    // bind to all interfaces so nginx can proxy in
     host: true,
 
-    // whitelist your custom host
-    // you can also use `allowedHosts: true` to allow any host
-    allowedHosts: true,
+    // optional: allow all hosts or restrict to specific domains
+    allowedHosts: "all", // <- use this instead of `true`
 
-    // if you use HMR (hot module reload), ensure WebSocket goes through SSL
+    // HMR settings
     hmr: {
-      host: "swap.equilabs.io",
-      protocol: "wss",
+      // Set this only if you're accessing the site via domain (e.g. swap.equilabs.io)
+      host: "localhost", // use "localhost" unless you're accessing from a real domain
+      protocol: "ws",     // don't use "wss" unless you're running on HTTPS
+      port: 5173,
     },
 
     // keep your existing API prox

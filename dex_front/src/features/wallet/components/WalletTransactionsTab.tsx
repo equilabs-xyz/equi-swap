@@ -117,105 +117,108 @@ export default function WalletTransactionsTab({
   }, [onIntersection]);
 
   return (
-    <ScrollArea className="min-h-[20vh] h-[45vh] max-h-[65vh]">
-      <div className="space-y-2">
-        {loading && loadedTransactions.length === 0 ? (
-          Array(3)
-            .fill(0)
-            .map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-lg" />
-            ))
-        ) : loadedTransactions.length > 0 ? (
-          sortedGroups.map(([label, txs]) => (
-            <div key={label}>
-              <p className="text-xs text-muted-foreground uppercase mb-1 ">
-                {label}
-              </p>
-              {txs.map((tx, index) => {
-                const amount = parseFloat(tx.amount ?? "0");
-                const symbol = tx.symbol ?? "wallet.unknown";
-                const status =
-                  tx.status?.toLowerCase() === "confirmed"
-                    ? t("tx.success")
-                    : t("tx.failed");
+      <ScrollArea className="min-h-[20vh] h-[100vh] max-h-[65vh] pt-4">
+        <div className="space-y-2 pb-[100px]">
+          <div className="space-y-2">
+            {loading && loadedTransactions.length === 0 ? (
+                Array(3)
+                    .fill(0)
+                    .map((_, i) => (
+                        <Skeleton key={i} className="h-16 w-full rounded-lg"/>
+                    ))
+            ) : loadedTransactions.length > 0 ? (
+                sortedGroups.map(([label, txs]) => (
+                    <div key={label}>
+                      <p className="text-xs text-muted-foreground uppercase mb-1 ">
+                        {label}
+                      </p>
+                      {txs.map((tx, index) => {
+                        const amount = parseFloat(tx.amount ?? "0");
+                        const symbol = tx.symbol ?? "wallet.unknown";
+                        const status =
+                            tx.status?.toLowerCase() === "confirmed"
+                                ? t("tx.success")
+                                : t("tx.failed");
 
-                return (
-                  <a
-                    key={`${tx.signature || index}`}
-                    href={`https://solscan.io/tx/${tx.signature}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block rounded-lg border p-3 hover:bg-accent transition-colors mb-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        {tx.type === "UNKNOWN" ? (
-                          <Avatar>
-                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-lg font-bold">
-                              ?
-                            </div>
-                          </Avatar>
-                        ) : (
-                          <Avatar>
-                            <AvatarImage
-                              src={tx.picture || ""}
-                              alt={tx.symbol || "?"}
-                            />
-                          </Avatar>
-                        )}
-                        <div className="ml-2">
-                          <p className="text-sm">
-                            {tx.type === "SENT"
-                                ? t("wallet.sent")
-                                : tx.type === "RECEIVED"
-                                    ? t("wallet.received")
-                                    : t("wallet.unknown")} {tx.symbol}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {new Date(tx.timestamp * 1000).toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p
-                          className={`font-medium ${
-                            amount > 0 ? "text-green-500" : "text-red-500"
-                          }`}
-                        >
-                          {amount > 0 ? "+" : "-"}
-                          {Math.abs(amount).toLocaleString(undefined, {
-                            maximumFractionDigits: 4,
-                          })}{" "}
-                          {symbol}
-                        </p>
-                        <p
-                          className={`text-sm ${
-                            status === t("tx.success")
-                              ? "text-muted-foreground"
-                              : "text-destructive"
-                          }`}
-                        >
-                          {status}
-                        </p>
-                      </div>
+                        return (
+                            <a
+                                key={`${tx.signature || index}`}
+                                href={`https://solscan.io/tx/${tx.signature}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block rounded-lg border p-3 hover:bg-accent transition-colors mb-2"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                  {tx.type === "UNKNOWN" ? (
+                                      <Avatar>
+                                        <div
+                                            className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-lg font-bold">
+                                          ?
+                                        </div>
+                                      </Avatar>
+                                  ) : (
+                                      <Avatar>
+                                        <AvatarImage
+                                            src={tx.picture || ""}
+                                            alt={tx.symbol || "?"}
+                                        />
+                                      </Avatar>
+                                  )}
+                                  <div className="ml-2">
+                                    <p className="text-sm">
+                                      {tx.type === "SENT"
+                                          ? t("wallet.sent")
+                                          : tx.type === "RECEIVED"
+                                              ? t("wallet.received")
+                                              : t("wallet.unknown")} {tx.symbol}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {new Date(tx.timestamp * 1000).toLocaleString()}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p
+                                      className={`font-medium ${
+                                          amount > 0 ? "text-green-500" : "text-red-500"
+                                      }`}
+                                  >
+                                    {amount > 0 ? "+" : "-"}
+                                    {Math.abs(amount).toLocaleString(undefined, {
+                                      maximumFractionDigits: 4,
+                                    })}{" "}
+                                    {symbol}
+                                  </p>
+                                  <p
+                                      className={`text-sm ${
+                                          status === t("tx.success")
+                                              ? "text-muted-foreground"
+                                              : "text-destructive"
+                                      }`}
+                                  >
+                                    {status}
+                                  </p>
+                                </div>
+                              </div>
+                            </a>
+                        );
+                      })}
                     </div>
-                  </a>
-                );
-              })}
-            </div>
-          ))
-        ) : (
-          <p className="text-center text-muted-foreground">
-            {t("loading.title")}
-          </p>
-        )}
-        {loading && loadedTransactions.length > 0 && (
-          <div className="text-center py-2 text-muted-foreground text-sm">
-            {t("loading.more") || "Loading more..."}
+                ))
+            ) : (
+                <p className="text-center text-muted-foreground">
+                  {t("loading.title")}
+                </p>
+            )}
+            {loading && loadedTransactions.length > 0 && (
+                <div className="text-center py-2 text-muted-foreground text-sm">
+                  {t("loading.more") || "Loading more..."}
+                </div>
+            )}
           </div>
-        )}
-      </div>
-      <div ref={observerRef} className="h-8" />
-    </ScrollArea>
-  );
+          <div ref={observerRef} className="h-8"/>
+        </div>
+      </ScrollArea>
+);
 }

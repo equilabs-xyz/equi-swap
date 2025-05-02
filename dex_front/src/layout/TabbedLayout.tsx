@@ -23,47 +23,6 @@ export default function TabbedLayout() {
     const savedTab = localStorage.getItem(TAB_STORAGE_KEY);
     if (savedTab) setTab(savedTab);
 
-    // iOS height fix - important for preventing scroll issues on iOS
-    const setVh = () => {
-      const vh = window.innerHeight * 0.01;
-      document.documentElement.style.setProperty("--vh", `${vh}px`);
-    };
-
-    setVh();
-    window.addEventListener("resize", setVh);
-
-    // Complete lock down of scrolling
-    document.documentElement.style.position = "fixed";
-    document.documentElement.style.overflow = "hidden";
-    document.documentElement.style.width = "100%";
-    document.documentElement.style.height = "100%";
-
-    document.body.style.position = "fixed";
-    document.body.style.overflow = "hidden";
-    document.body.style.width = "100%";
-    document.body.style.height = "100%";
-
-    // Block all touch movements that aren't in allowed containers
-    const blockTouchMove = (e) => {
-      if (!e.target.closest(".scroll-container")) {
-        e.preventDefault();
-      }
-    };
-
-    document.addEventListener("touchmove", blockTouchMove, { passive: false });
-
-    return () => {
-      document.removeEventListener("touchmove", blockTouchMove);
-      window.removeEventListener("resize", setVh);
-      document.documentElement.style.position = "";
-      document.documentElement.style.overflow = "";
-      document.documentElement.style.width = "";
-      document.documentElement.style.height = "";
-      document.body.style.position = "";
-      document.body.style.overflow = "";
-      document.body.style.width = "";
-      document.body.style.height = "";
-    };
   }, []);
 
   const handleTabChange = (value: string) => {
@@ -74,7 +33,7 @@ export default function TabbedLayout() {
   return (
     <div
       className="fixed inset-0 w-full h-full bg-background text-foreground"
-      style={{ height: "100vh", height: "calc(var(--vh, 1vh) * 100)" }}
+      style={{ height: "100vh"}}
     >
       {isMobile ? (
         <div className="flex flex-col h-full w-full md:hidden">
@@ -83,7 +42,7 @@ export default function TabbedLayout() {
             onValueChange={handleTabChange}
             className="flex flex-col h-full w-full"
           >
-            <div className="flex-1 px-4 pt-2 pb-24">
+            <div className="flex-1 px-4 pt-2">
               <TabsContent value="swap" className="h-full">
                 <div ref={swapContentRef} className="scroll-container h-full overflow-y-auto">
                   <SwapLayout />
