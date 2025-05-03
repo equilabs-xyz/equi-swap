@@ -85,7 +85,7 @@ export default function WalletSendDialog({
       return symbol.includes(tokenSearch.toLowerCase());
     });
   }, [tokenSearch, tokenAccounts]);
-
+    const { sendTransaction } = useWallet();
   const { t } = useTranslation();
   const handleSend = async (values: any) => {
     const token = tokenAccounts.find((t: any) => t.mint === values.token);
@@ -139,7 +139,7 @@ export default function WalletSendDialog({
         );
       }
 
-      const { sendTransaction } = useWallet();
+
       const signature = await sendTransaction(tx, connection);
       await connection.confirmTransaction(signature, "confirmed");
 
