@@ -171,8 +171,11 @@ export default function WalletTransactionsTab({
                                           ? t("wallet.sent")
                                           : tx.type === "RECEIVED"
                                               ? t("wallet.received")
-                                              : t("wallet.unknown")} {tx.symbol}
+                                              : tx.type === "CLOSED ACCOUNT"
+                                                  ? t("wallet.closedAccount")
+                                                  : t("wallet.unknown")} {tx.symbol}
                                     </p>
+
                                     <p className="text-sm text-muted-foreground">
                                       {new Date(tx.timestamp * 1000).toLocaleString()}
                                     </p>
