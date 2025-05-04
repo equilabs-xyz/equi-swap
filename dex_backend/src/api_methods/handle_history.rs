@@ -230,6 +230,8 @@ pub fn parse_solflare_tx(tx: serde_json::Map<String, Value>, wallet: &Pubkey) ->
     let tx_type = if let Some(tx_type) = tx.get("type").and_then(|t| t.as_str()) {
         if tx_type.contains("RECEIVED") {
             "RECEIVED"
+        } else if tx_type.contains("INTERACTED_WITH_APP") {
+            "APP INTERACTION"
         } else {
             match tx_type {
                 "SENT_TOKEN" => "SENT",

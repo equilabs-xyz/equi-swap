@@ -173,7 +173,9 @@ export default function WalletTransactionsTab({
                                               ? t("wallet.received")
                                               : tx.type === "CLOSED ACCOUNT"
                                                   ? t("wallet.closedAccount")
-                                                  : t("wallet.unknown")} {tx.symbol}
+                                                  : tx.type === "APP INTERACTION"
+                                                      ? t("wallet.appInteraction")
+                                                      : t("wallet.unknown")} {tx.symbol}
                                     </p>
 
                                     <p className="text-sm text-muted-foreground">
