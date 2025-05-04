@@ -11,6 +11,7 @@ import {
 import { TokenInfo } from "@/data/token-list";
 import { useTranslation } from "react-i18next";
 
+
 interface Props {
   label: string;
   token: TokenInfo | null;

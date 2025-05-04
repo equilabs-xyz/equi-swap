@@ -150,7 +150,7 @@ export default function WalletSendDialog({
                 href={`https://solscan.io/tx/${signature}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="underline text-accent-foreground"
+                className="underline text-sm"
             >
               {t("wallet.viewOnSolscan")}
             </a>
