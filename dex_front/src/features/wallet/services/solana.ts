@@ -1,5 +1,3 @@
-import { PublicKey } from "@solana/web3.js";
-
 export async function fetchTokenMetadata(mintAddress: string) {
   try {
     const response = await fetch(

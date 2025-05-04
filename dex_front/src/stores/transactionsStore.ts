@@ -5,6 +5,7 @@ interface Transaction {
   amount: string;
   symbol: string;
   status: string;
+  timestamp: number;
   type: string;
   date: string;
   picture?: string;

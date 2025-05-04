@@ -46,6 +46,15 @@ export default function SwapLayout() {
     swapTokens();
     setRotated((prev) => !prev);
   };
+  const [chartRefreshTrigger, setChartRefreshTrigger] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setChartRefreshTrigger((prev) => prev + 1);
+    }, 15000); // every 15 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Default to SOL -> USDC on first load
   useEffect(() => {
@@ -129,6 +138,7 @@ export default function SwapLayout() {
       {inputToken && outputToken && (
         <div className="p-4 bg-card border border-border rounded-2xl">
           <PriceChart
+              key={chartRefreshTrigger}
             baseAddress={inputToken.address}
             quoteAddress={outputToken.address}
             baseLogoURI={inputToken.logoURI}
