@@ -27,7 +27,8 @@ export const useSPLTokenAccountListeners = ({
         const subscriptionIds = subscriptionIdsRef.current;
 
         // Clean up previous subscriptions
-        for (const [pubkey, id] of subscriptionIds) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        for (const [_pubkey, id] of subscriptionIds) {
             connection.removeAccountChangeListener(id);
         }
         subscriptionIds.clear();
@@ -43,7 +44,8 @@ export const useSPLTokenAccountListeners = ({
 
 
         return () => {
-            for (const [pubkey, id] of subscriptionIds) {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            for (const [_pubkey, id] of subscriptionIds) {
                 connection.removeAccountChangeListener(id);
             }
             subscriptionIds.clear();

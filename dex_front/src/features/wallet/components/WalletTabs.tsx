@@ -2,6 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import WalletAssetsTab from "./WalletAssetsTab";
 import WalletTransactionsTab from "./WalletTransactionsTab";
 import { useTranslation } from "react-i18next";
+import {WalletTabsProps} from "@/types";
 
 export default function WalletTabs({
   loading,
@@ -12,7 +13,7 @@ export default function WalletTabs({
   handleCloseAccount,
   transactions,
   address,
-}: any) {
+}: WalletTabsProps) {
   const { t } = useTranslation();
   return (
     <Tabs defaultValue="assets" className="overflow-y-auto]">

@@ -1,6 +1,6 @@
 import { create } from "zustand";
+import {TokenAccount} from "@/types";
 
-type TokenAccount = any; // Replace with your actual type
 
 type WalletUIState = {
   currentToken: TokenAccount | null;

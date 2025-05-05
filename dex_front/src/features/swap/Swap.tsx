@@ -12,6 +12,7 @@ import SwapButton from "./components/SwapButton";
 import PriceChart from "./components/PriceChart";
 import { useTokenBalances } from "./hooks/useTokenBalances";
 import { useSwapStore } from "@/stores/swap-ui.ts";
+import { TopTokens as topTokens } from "@/data/top-tokens"; // correct path to where you define topTokens
 
 // Raydium SOL/USDC mint addresses
 const SOL_MINT = "So11111111111111111111111111111111111111112";
@@ -37,7 +38,7 @@ export default function SwapLayout() {
     ? `${publicKey.toBase58().slice(0, 4)}...${publicKey.toBase58().slice(-4)}`
     : "";
 
-  const { balances: tokenBalances, topTokens } = useTokenBalances(publicKey);
+  const { balances: tokenBalances } = useTokenBalances(publicKey);
   const { inputToken, outputToken, setInputToken, setOutputToken, swapTokens } =
     useSwapStore();
 

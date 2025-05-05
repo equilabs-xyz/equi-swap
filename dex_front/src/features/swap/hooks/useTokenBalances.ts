@@ -2,14 +2,11 @@
 import { useEffect, useState } from "react";
 import { Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { TokenInfo } from "@/data/token-list";
-import { TopTokens } from "@/data/top-tokens";
 
 const CONNECTION_ENDPOINT = import.meta.env.VITE_SOLANA_RPC;
 
 export function useTokenBalances(publicKey: PublicKey | null) {
   const [balances, setBalances] = useState<Record<string, number>>({});
-  const [topTokens, setTopTokens] = useState<TokenInfo[]>(TopTokens);
 
   useEffect(() => {
     const fetchBalances = async () => {
@@ -34,17 +31,10 @@ export function useTokenBalances(publicKey: PublicKey | null) {
       });
 
       setBalances(updatedBalances);
-
-      setTopTokens(
-        TopTokens.map((token) => ({
-          ...token,
-          balance: updatedBalances[token.address] || 0,
-        })),
-      );
     };
 
     fetchBalances();
   }, [publicKey]);
 
-  return { balances, topTokens };
+  return { balances };
 }

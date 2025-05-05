@@ -4,23 +4,13 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import { toast } from "sonner";
-
-interface TokenAccount {
-  pubkey: string;
-  [key: string]: any;
-}
+import {CloseAccountParams} from "@/types";
 
 export const handleCloseAccount = async ({
   publicKey,
   tokenAccount,
   sendTransaction,
-  setTokenAccounts,
-}: {
-  publicKey: PublicKey;
-  tokenAccount: TokenAccount;
-  sendTransaction: (tx: Transaction, connection: Connection) => Promise<string>;
-  setTokenAccounts: React.Dispatch<React.SetStateAction<TokenAccount[]>>;
-}) => {
+}: CloseAccountParams) => {
   const toastId = toast.loading("Closing account...");
   try {
     const connection = new Connection(import.meta.env.VITE_SOLANA_RPC);
@@ -54,9 +44,8 @@ export const handleCloseAccount = async ({
       ),
     });
 
-    setTokenAccounts((prev) =>
-      prev.filter((acc) => acc.pubkey !== tokenAccount.pubkey),
-    );
+
+
   } catch (error) {
     toast.error("Failed to close account", {
       id: toastId,

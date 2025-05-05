@@ -7,33 +7,10 @@ import {
   fetchTransactionsBySignatures,
 } from "@/features/wallet/services/solana.ts";
 import { useTransactionsStore } from "@/stores/transactionsStore.ts";
+import {RawWalletApiResult, RawWalletToken, TokenAccount, WalletData} from "@/types";
 
 const API_ENDPOINT = "/api/wallet";
 
-interface TokenAccount {
-  pubkey: string;
-  mint: string;
-  balance: number;
-  decimals: number;
-  metadata: {
-    name: string;
-    symbol: string;
-    logoURI: string;
-    decimals: number;
-  };
-  price: number | null;
-  verified: boolean;
-  actions: any[];
-}
-
-interface WalletData {
-  solBalance: number;
-  tokenAccounts: TokenAccount[];
-  walletValue: any;
-  solValue: any;
-  onrampTokenId: string | null;
-  offrampTokenId: string | null;
-}
 
 export function useWalletData(publicKey?: PublicKey | null) {
   const queryClient = useQueryClient();
@@ -45,15 +22,13 @@ export function useWalletData(publicKey?: PublicKey | null) {
     if (!walletKey) return null;
 
     const response = await fetch(`${API_ENDPOINT}?address=${walletKey}`);
-    const result = await response.json();
-
-    if (!result.success) throw new Error(result.error);
-
+    const result: RawWalletApiResult = await response.json();
     const data = result.result;
 
-    const solToken = data.tokens.find((t: any) => t.symbol === "SOL");
+    const solToken = data.tokens.find((t) => t.symbol === "SOL");
 
-    const accounts: TokenAccount[] = data.tokens.map((token: any) => ({
+
+    const accounts: TokenAccount[] = data.tokens.map((token: RawWalletToken) => ({
       pubkey: token.accounts?.[0]?.pubkey || "",
       mint: token.mint,
       balance: token.totalUiAmount,
@@ -73,8 +48,8 @@ export function useWalletData(publicKey?: PublicKey | null) {
     return {
       solBalance: solToken?.totalUiAmount || 0,
       tokenAccounts: accounts,
-      walletValue: data.value || null,
-      solValue: data.solValue || null,
+      walletValue: { total: data.value || 0 },
+      solValue: { total: data.solValue || 0 },
       onrampTokenId: data.onrampTokenId || null,
       offrampTokenId: data.offrampTokenId || null,
     };
@@ -106,7 +81,6 @@ export function useWalletData(publicKey?: PublicKey | null) {
     enabled: !!walletKey,
     staleTime: Infinity,
     retry: false,
-    onError: () => toast.error("Failed to fetch wallet data"),
   });
 
   // Transactions via fetchTransactionHistory
@@ -120,7 +94,6 @@ export function useWalletData(publicKey?: PublicKey | null) {
     enabled: !!walletKey,
     staleTime: Infinity,
     retry: false,
-    onError: () => toast.error("Failed to fetch transactions"),
   });
 
   // Clean disconnect state
@@ -135,11 +108,11 @@ export function useWalletData(publicKey?: PublicKey | null) {
 
   // Invalidation for manual refreshes
   const invalidateWalletData = useCallback(() => {
-    queryClient.invalidateQueries(["wallet", walletKey]);
+    queryClient.invalidateQueries({ queryKey: ["wallet", walletKey] });
   }, [queryClient, walletKey]);
 
   const invalidateTransactions = useCallback(() => {
-    queryClient.invalidateQueries(["transactions", walletKey]);
+    queryClient.invalidateQueries({ queryKey: ["transactions", walletKey] });
   }, [queryClient, walletKey]);
 
   const setTokenAccounts = useCallback(

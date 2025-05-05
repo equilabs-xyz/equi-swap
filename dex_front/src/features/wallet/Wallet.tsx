@@ -1,5 +1,5 @@
 // wallet/Wallet.tsx
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import WalletHeader from "./components/WalletHeader";
 import WalletSendDialog from "./components/WalletSendDialog";
@@ -13,6 +13,8 @@ import { useSPLTokenAccountListeners } from "@/features/wallet/services/useSPLTo
 import { useNewTokenAccountListener } from "@/features/wallet/services/useNewTokenAccountListener.ts";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWalletUIStore } from "@/stores/wallet-ui";
+import {TokenAccount} from "@/types";
+import {PublicKey} from "@solana/web3.js";
 function useDebouncedCallback(callback: () => void, delay: number) {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -42,8 +44,7 @@ export default function WalletLayout() {
     setTokenAccounts,
     walletValue,
     solValue,
-    onrampTokenId,
-    offrampTokenId,
+
   } = useWalletData(publicKey);
 
   useEffect(() => {
@@ -57,7 +58,10 @@ export default function WalletLayout() {
 
   const debouncedInvalidate = useDebouncedCallback(() => {
     console.log("debouncedInvalidate");
-    queryClient.invalidateQueries(["wallet", publicKey?.toBase58()]);
+      if (publicKey) {
+          queryClient.invalidateQueries({ queryKey: ["wallet", publicKey.toBase58()] });
+      }
+
   }, 1000);
 
   useSPLTokenAccountListeners({
@@ -84,15 +88,14 @@ export default function WalletLayout() {
     setCurrentToken,
     setShowSend,
     setShowReceive,
-    setMode,
   } = useWalletUIStore();
 
   useEffect(() => {
     if (!currentToken && showSend) {
-      const solToken = tokenAccounts.find(
-        (t) => t.symbol === "SOL" || t.metadata?.symbol === "SOL",
-      );
-      setCurrentToken(solToken);
+        const solToken: TokenAccount | null =
+            tokenAccounts.find((t: TokenAccount) => t.metadata?.symbol === "SOL") ?? null;
+
+        setCurrentToken(solToken);
     }
   }, [showSend, currentToken, tokenAccounts]);
   if (!connected) {
@@ -110,14 +113,14 @@ export default function WalletLayout() {
 
   return (
     <div className="max-w-md mx-auto p-2 space-y-4">
-      <WalletHeader publicKey={publicKey} mode={mode} setMode={setMode} />
+      <WalletHeader publicKey={publicKey} />
       <WalletBalanceHeader
         solBalance={solBalance}
         solValue={solValue}
         walletValue={walletValue}
       />
       <WalletActions
-        publicKey={publicKey?.toBase58()}
+        publicKey={publicKey?.toBase58() ?? ""}
         onSendClick={() => setShowSend(true)}
         onReceiveClick={() => setShowReceive(true)}
       />
@@ -131,22 +134,22 @@ export default function WalletLayout() {
       <WalletTabs
         loading={loading}
         tokenAccounts={tokenAccounts}
-        setCurrentToken={(token: any) => {
+        setCurrentToken={(token: TokenAccount) => {
           setCurrentToken(token);
           setShowSend(true);
         }}
         setShowSend={setShowSend}
         mode={mode}
-        handleCloseAccount={(account: any) =>
+        handleCloseAccount={(account: TokenAccount) =>
           handleCloseAccount({
-            publicKey,
+              publicKey: publicKey!,
             tokenAccount: account,
             sendTransaction,
             setTokenAccounts,
           })
         }
         transactions={transactions}
-        address={publicKey?.toBase58()}
+        address={publicKey?.toBase58() ?? ""}
       />
 
       <WalletSendDialog
@@ -155,7 +158,7 @@ export default function WalletLayout() {
         currentToken={currentToken}
         setCurrentToken={setCurrentToken}
         tokenAccounts={tokenAccounts}
-        publicKey={publicKey}
+        publicKey={publicKey as PublicKey}
         fetchData={fetchData}
       />
     </div>

@@ -8,12 +8,11 @@ import {
 } from "@/features/wallet/services/solana.ts";
 import {useTransactionsStore} from "@/stores/transactionsStore";
 import {format, isToday, isYesterday} from "date-fns";
+import {WalletTransactionsTabProps} from "@/types";
 
 export default function WalletTransactionsTab({
                                                   address,
-                                              }: {
-    address: string;
-}) {
+                                              }:WalletTransactionsTabProps) {
     const {
         allSignatures,
         loadedTransactions,
@@ -94,7 +93,8 @@ export default function WalletTransactionsTab({
                 loadedTransactions.length < allSignatures.length
             ) {
                 console.log("[onIntersection] Triggering load more");
-                setLoadCount((prev: number) => Math.min(prev + 10, allSignatures.length));
+                setLoadCount(Math.min(loadCount + 10, allSignatures.length));
+
             }
         },
         [loadedTransactions.length, allSignatures.length, loading, setLoadCount],

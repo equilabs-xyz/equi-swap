@@ -35,11 +35,12 @@ import {
   Dialog as TokenDialog,
   DialogContent as TokenDialogContent,
 } from "@/components/ui/dialog";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useWalletUIStore } from "@/stores/wallet-ui.ts";
 import { useTranslation } from "react-i18next";
+import {WalletSendDialogProps} from "@/types";
 
 const CONNECTION_ENDPOINT = import.meta.env.VITE_SOLANA_RPC;
 
@@ -49,6 +50,8 @@ const formSchema = z.object({
   amount: z.string().refine((val) => Number(val) > 0, "Amount must be > 0"),
 });
 
+
+
 export default function WalletSendDialog({
                                            open,
                                            setOpen,
@@ -57,7 +60,7 @@ export default function WalletSendDialog({
                                            setCurrentToken,
                                            publicKey,
                                            fetchData,
-                                         }: any) {
+                                         }: WalletSendDialogProps) {
   const {
     selectedToken,
     setSelectedToken,
@@ -184,7 +187,7 @@ export default function WalletSendDialog({
               <FormField
                   control={form.control}
                   name="token"
-                  render={({ field }) => (
+                  render={() => (
                       <FormItem>
                         <FormControl>
                           <Button

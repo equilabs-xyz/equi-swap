@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { TokenInfo } from "@/data/token-list.ts";
+import {TokenInfo} from "@/types";
 
 type SwapState = {
   inputToken: TokenInfo | null;

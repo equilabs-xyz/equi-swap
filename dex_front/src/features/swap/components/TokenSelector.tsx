@@ -4,10 +4,10 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChevronDown, CheckCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TokenInfo } from "@/data/token-list";
 import { useTranslation } from "react-i18next";
 import { ClipboardCopyIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
 import { toast } from "sonner";
+import {TokenInfo} from "@/types";
 
 interface Props {
   label: string;

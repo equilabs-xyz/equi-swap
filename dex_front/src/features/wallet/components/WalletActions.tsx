@@ -1,15 +1,11 @@
 import { QrCode, ArrowUpRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import {WalletActionsProps} from "@/types";
 
 export default function WalletActions({
-  publicKey,
   onSendClick,
   onReceiveClick,
-}: {
-  publicKey: string;
-  onSendClick: () => void;
-  onReceiveClick: () => void;
-}) {
+}: WalletActionsProps) {
   const { t } = useTranslation();
 
   return (

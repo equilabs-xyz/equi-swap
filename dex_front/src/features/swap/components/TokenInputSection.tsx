@@ -8,8 +8,8 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-import { TokenInfo } from "@/data/token-list";
 import { useTranslation } from "react-i18next";
+import {TokenInfo} from "@/types";
 
 
 interface Props {
@@ -31,7 +31,7 @@ export default function TokenInputSection({
   form,
   fieldName,
   tokenBalances,
-  topTokens,
+  // topTokens,
   publicKey,
   allowMax = false,
 }: Props) {
@@ -88,8 +88,8 @@ export default function TokenInputSection({
           selected={token}
           onSelect={onSelect}
           publicKey={publicKey}
-          balances={tokenBalances}
-          topTokens={topTokens}
+          // balances={tokenBalances}
+          // topTokens={topTokens}
         />
         <Form {...form}>
           <FormField

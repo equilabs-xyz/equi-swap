@@ -22,19 +22,10 @@ export const useNewTokenAccountListener = ({
 
     const connection = connectionRef.current;
 
-    // Filter: token accounts where owner == publicKey
-    const filters = [
-      {
-        memcmp: {
-          offset: 32, // Owner offset in SPL Token account
-          bytes: publicKey.toBase58(),
-        },
-      },
-    ];
 
     const id = connection.onProgramAccountChange(
         TOKEN_PROGRAM_ID,
-        (info) => {
+        () => {
           onNewAccount(); // or debounce if needed
         },
         {
