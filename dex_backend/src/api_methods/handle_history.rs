@@ -228,13 +228,14 @@ pub fn parse_solflare_tx(tx: serde_json::Map<String, Value>, wallet: &Pubkey) ->
 
     // Determine transaction type
     let tx_type = if let Some(tx_type) = tx.get("type").and_then(|t| t.as_str()) {
-        if tx_type.contains("RECEIVED") {
+        if tx_type.contains("SENT") {
+            "SENT"
+        } else if tx_type.contains("RECEIVED") {
             "RECEIVED"
         } else if tx_type.contains("INTERACTED_WITH_APP") {
             "APP INTERACTION"
         } else {
             match tx_type {
-                "SENT_TOKEN" => "SENT",
                 "CLOSED_ATA" => "CLOSED ACCOUNT",
                 _ => "UNKNOWN",
             }
@@ -242,7 +243,6 @@ pub fn parse_solflare_tx(tx: serde_json::Map<String, Value>, wallet: &Pubkey) ->
     } else {
         "UNKNOWN"
     };
-
     // Parse addresses from transaction details
     let (mut sender, mut recipient) = ("unknown".into(), "unknown".into());
     if let Some(expanded) = tx.get("expandedData") {

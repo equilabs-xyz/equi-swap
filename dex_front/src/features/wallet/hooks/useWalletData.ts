@@ -1,32 +1,36 @@
 import { useEffect, useCallback } from "react";
-import { PublicKey } from "@solana/web3.js";
+import { PublicKey, Connection } from "@solana/web3.js";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  fetchSignatures,
-  fetchTransactionsBySignatures,
-} from "@/features/wallet/services/solana.ts";
+import { fetchSignatures, fetchTransactionsBySignatures } from "@/features/wallet/services/solana.ts";
 import { useTransactionsStore } from "@/stores/transactionsStore.ts";
-import {RawWalletApiResult, RawWalletToken, TokenAccount, WalletData} from "@/types";
+import {
+  RawWalletApiResult,
+  RawWalletToken,
+  TokenAccount,
+  WalletData,
+} from "@/types";
 
 const API_ENDPOINT = "/api/wallet";
 
-
 export function useWalletData(publicKey?: PublicKey | null) {
-  const queryClient = useQueryClient();
   const walletKey = publicKey?.toBase58();
-  const { setAllSignatures, setLoadedTransactions } = useTransactionsStore();
+  const queryClient = useQueryClient();
+  const {
+    setAllSignatures,
+    setLoadedTransactions,
+  } = useTransactionsStore();
 
+  // ✅ Fetch wallet balances and metadata (fast)
   const fetchWalletData = async (): Promise<WalletData | null> => {
-    console.log("Fetching wallet data for", walletKey);
     if (!walletKey) return null;
 
+    console.log("📦 Fetching wallet data for:", walletKey);
     const response = await fetch(`${API_ENDPOINT}?address=${walletKey}`);
     const result: RawWalletApiResult = await response.json();
     const data = result.result;
 
     const solToken = data.tokens.find((t) => t.symbol === "SOL");
-
 
     const accounts: TokenAccount[] = data.tokens.map((token: RawWalletToken) => ({
       pubkey: token.accounts?.[0]?.pubkey || "",
@@ -55,26 +59,7 @@ export function useWalletData(publicKey?: PublicKey | null) {
     };
   };
 
-  const fetchInitialTransactions = useCallback(async () => {
-    console.log("Fetching initial transactions for", walletKey);
-    if (!walletKey) return;
-
-    try {
-      const sigs = await fetchSignatures(walletKey);
-      setAllSignatures(sigs);
-
-      const firstChunk = sigs.slice(0, 10);
-      if (firstChunk.length > 0) {
-        const txs = await fetchTransactionsBySignatures(walletKey, firstChunk);
-        setLoadedTransactions(txs);
-      }
-    } catch (e) {
-      console.error("Failed to fetch initial transactions", e);
-      toast.error("Failed to fetch transactions");
-    }
-  }, [walletKey, setAllSignatures, setLoadedTransactions]);
-
-  // Wallet balances
+  // ✅ Fire immediately on mount
   const { data: walletData, isLoading } = useQuery<WalletData | null>({
     queryKey: ["wallet", walletKey],
     queryFn: fetchWalletData,
@@ -83,20 +68,35 @@ export function useWalletData(publicKey?: PublicKey | null) {
     retry: false,
   });
 
-  // Transactions via fetchTransactionHistory
-  const { data: transactions = [], isLoading: isTxLoading } = useQuery({
-    queryKey: ["transactions", walletKey],
-    queryFn: async () => {
-      if (!walletKey) return; // ❌ returns `undefined`
-      const txs = await fetchInitialTransactions();
-      return txs;
-    },
-    enabled: !!walletKey,
-    staleTime: Infinity,
-    retry: false,
-  });
+  // ✅ Independent transaction loader (non-blocking)
+  const fetchInitialTransactions = useCallback(async () => {
+    if (!walletKey) return [];
 
-  // Clean disconnect state
+    try {
+      const signatures = await fetchSignatures(walletKey);
+      setAllSignatures(signatures);
+
+      const firstChunk = signatures.slice(0, 10);
+      if (firstChunk.length > 0) {
+        const transactions = await fetchTransactionsBySignatures(walletKey, firstChunk);
+        setLoadedTransactions(transactions);
+        return transactions;
+      }
+    } catch (err) {
+      console.error("❌ Error fetching transactions:", err);
+      toast.error("Failed to fetch transactions");
+    }
+
+    return [];
+  }, [walletKey, setAllSignatures, setLoadedTransactions]);
+
+  useEffect(() => {
+    if (walletKey) {
+      fetchInitialTransactions();
+    }
+  }, [walletKey, fetchInitialTransactions]);
+
+  // 🔄 Clean disconnect state
   useEffect(() => {
     if (!publicKey) {
       const last = localStorage.getItem("last-connected-pubkey");
@@ -106,23 +106,19 @@ export function useWalletData(publicKey?: PublicKey | null) {
     }
   }, [publicKey]);
 
-  // Invalidation for manual refreshes
+  // 🔁 Invalidation for refresh
   const invalidateWalletData = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["wallet", walletKey] });
   }, [queryClient, walletKey]);
 
-  const invalidateTransactions = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ["transactions", walletKey] });
-  }, [queryClient, walletKey]);
-
   const setTokenAccounts = useCallback(
-    (next: TokenAccount[]) => {
-      queryClient.setQueryData<WalletData | null>(
-        ["wallet", walletKey],
-        (old) => (old ? { ...old, tokenAccounts: next } : null),
-      );
-    },
-    [queryClient, walletKey],
+      (next: TokenAccount[]) => {
+        queryClient.setQueryData<WalletData | null>(
+            ["wallet", walletKey],
+            (old) => (old ? { ...old, tokenAccounts: next } : null),
+        );
+      },
+      [queryClient, walletKey],
   );
 
   return {
@@ -132,11 +128,9 @@ export function useWalletData(publicKey?: PublicKey | null) {
     solValue: walletData?.solValue ?? null,
     onrampTokenId: walletData?.onrampTokenId ?? null,
     offrampTokenId: walletData?.offrampTokenId ?? null,
-    loading: isLoading || isTxLoading,
-    transactions, // ✅ expose fetched txs
+    loading: isLoading,
     fetchData: () => invalidateWalletData(),
     invalidateWalletData,
-    invalidateTransactions, // ✅ manual refresh
     fetchInitialTransactions,
     setTokenAccounts,
   };
