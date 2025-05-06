@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { ClipboardCopyIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
 import { toast } from "sonner";
 import {TokenInfo} from "@/types";
+import {useAllTokens, useWalletTokens} from "@/features/swap/hooks/useTokenSearch.ts";
 
 interface Props {
   label: string;
@@ -35,10 +36,9 @@ export default function TokenSelector({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [walletTokens, setWalletTokens] = useState<TokenInfo[]>([]);
-  const [allTokens, setAllTokens] = useState<TokenInfo[]>([]);
-  const [loading, setLoading] = useState(false);
-
+  const { data: walletTokens = [], isLoading: walletLoading } = useWalletTokens(publicKey);
+  const { data: allTokens = [], isLoading: allLoading } = useAllTokens(search);
+  const loading = walletLoading || allLoading;
   const normalize = (t: any, fromWallet: boolean): TokenInfo => ({
     name: t.name,
     symbol: t.symbol,
