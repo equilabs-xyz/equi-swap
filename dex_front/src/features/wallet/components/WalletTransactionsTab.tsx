@@ -1,57 +1,66 @@
-import {useEffect, useRef, useCallback} from "react";
-import {ScrollArea} from "@/components/ui/scroll-area";
-import {Skeleton} from "@/components/ui/skeleton";
-import {Avatar, AvatarImage} from "@/components/ui/avatar";
-import {useTranslation} from "react-i18next";
+import { useEffect, useRef, useCallback } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarImage } from "@/components/ui/avatar";
+import { useTranslation } from "react-i18next";
 import {
+    fetchSignatures,
     fetchTransactionsBySignatures,
 } from "@/features/wallet/services/solana.ts";
-import {useTransactionsStore} from "@/stores/transactionsStore";
-import {format, isToday, isYesterday} from "date-fns";
-import {WalletTransactionsTabProps} from "@/types";
+import { useTransactionsStore } from "@/stores/transactionsStore";
+import { format, isToday, isYesterday } from "date-fns";
+import { WalletTransactionsTabProps } from "@/types";
 
-export default function WalletTransactionsTab({
-                                                  address,
-                                              }:WalletTransactionsTabProps) {
+export default function WalletTransactionsTab({ address }: WalletTransactionsTabProps) {
     const {
+        walletAddress,
+        setWallet,
+        getTransactions,
+        addTransactions,
         allSignatures,
         loadedTransactions,
         loadCount,
         loading,
-
-        setLoadedTransactions,
         setLoadCount,
+        setLoadedTransactions,
+        setAllSignatures,
         setLoading,
         setError,
     } = useTransactionsStore();
 
-    const {t} = useTranslation();
+    const { t } = useTranslation();
     const observerRef = useRef<HTMLDivElement | null>(null);
 
-    // Date group label
-    const getDateLabel = (timestamp: number) => {
-        const date = new Date(timestamp * 1000);
-        if (isToday(date)) return t("date.today") || "Today";
-        if (isYesterday(date)) return t("date.yesterday") || "Yesterday";
-        return format(date, "d MMMM");
-    };
+    // Set current wallet + check cache
+    useEffect(() => {
+        if (!address) return;
 
-    // Group transactions by date label
-    const grouped = loadedTransactions.reduce(
-        (acc, tx) => {
-            const label = getDateLabel(tx.timestamp);
-            if (!acc[label]) acc[label] = [];
-            acc[label].push(tx);
-            return acc;
-        },
-        {} as Record<string, typeof loadedTransactions>,
-    );
+        setWallet(address);
+        const cached = getTransactions(address, 5 * 60 * 1000); // 5 min TTL
 
-    const sortedGroups = Object.entries(grouped).sort(
-        ([a], [b]) => grouped[b][0].timestamp - grouped[a][0].timestamp,
-    );
+        if (cached) {
+            setLoadedTransactions(cached.transactions);
+            setAllSignatures(cached.signatures);
+        } else {
+            (async () => {
+                try {
+                    setLoading(true);
+                    const sigs = await fetchSignatures(address);
+                    const txs = await fetchTransactionsBySignatures(address, sigs.slice(0, 10));
+                    addTransactions(address, sigs, txs);
+                    setAllSignatures(sigs);
+                    setLoadedTransactions(txs);
+                } catch (e) {
+                    console.error("[Initial Fetch] Error:", e);
+                    setError("Failed to load transactions");
+                } finally {
+                    setLoading(false);
+                }
+            })();
+        }
+    }, [address]);
 
-    // Load transaction chunks when loadCount changes
+    // Scroll-based lazy loading
     useEffect(() => {
         if (
             !address ||
@@ -83,7 +92,6 @@ export default function WalletTransactionsTab({
         loadMoreTransactions();
     }, [loadCount]);
 
-    // Observer for infinite scroll
     const onIntersection = useCallback(
         (entries: IntersectionObserverEntry[]) => {
             const entry = entries[0];
@@ -92,9 +100,7 @@ export default function WalletTransactionsTab({
                 !loading &&
                 loadedTransactions.length < allSignatures.length
             ) {
-                console.log("[onIntersection] Triggering load more");
                 setLoadCount(Math.min(loadCount + 10, allSignatures.length));
-
             }
         },
         [loadedTransactions.length, allSignatures.length, loading, setLoadCount],
@@ -104,15 +110,39 @@ export default function WalletTransactionsTab({
         const observer = new IntersectionObserver(onIntersection, {
             threshold: 1.0,
         });
-        if (observerRef.current) {
-            console.log("[IntersectionObserver] Attaching observer");
-            observer.observe(observerRef.current);
-        }
-        return () => {
-            console.log("[IntersectionObserver] Disconnecting observer");
-            observer.disconnect();
-        };
+        if (observerRef.current) observer.observe(observerRef.current);
+        return () => observer.disconnect();
     }, [onIntersection]);
+
+    const getDateLabel = (timestamp: number) => {
+        const date = new Date(timestamp * 1000);
+        if (isToday(date)) return t("date.today") || "Today";
+        if (isYesterday(date)) return t("date.yesterday") || "Yesterday";
+        return format(date, "d MMMM");
+    };
+
+    const safeTransactions = Array.isArray(loadedTransactions)
+        ? loadedTransactions
+        : [];
+
+    if (!Array.isArray(loadedTransactions)) {
+        console.warn("⚠️ loadedTransactions is not an array:", loadedTransactions);
+    }
+
+    const grouped = safeTransactions.reduce(
+        (acc, tx) => {
+            const label = getDateLabel(tx.timestamp);
+            if (!acc[label]) acc[label] = [];
+            acc[label].push(tx);
+            return acc;
+        },
+        {} as Record<string, typeof safeTransactions>,
+    );
+
+    const sortedGroups = Object.entries(grouped).sort(
+        ([, aTxs], [, bTxs]) => bTxs[0].timestamp - aTxs[0].timestamp,
+    );
+
 
     return (
         <ScrollArea className="min-h-[20vh] h-[100vh] max-h-[65vh] pt-4">
@@ -122,14 +152,12 @@ export default function WalletTransactionsTab({
                         Array(3)
                             .fill(0)
                             .map((_, i) => (
-                                <Skeleton key={i} className="h-16 w-full rounded-lg"/>
+                                <Skeleton key={i} className="h-16 w-full rounded-lg" />
                             ))
                     ) : loadedTransactions.length > 0 ? (
                         sortedGroups.map(([label, txs]) => (
                             <div key={label}>
-                                <p className="text-xs text-muted-foreground uppercase mb-1 ">
-                                    {label}
-                                </p>
+                                <p className="text-xs text-muted-foreground uppercase mb-1">{label}</p>
                                 {txs.map((tx, index) => {
                                     const amount = parseFloat(tx.amount ?? "0");
                                     const symbol = tx.symbol ?? "wallet.unknown";
@@ -148,21 +176,15 @@ export default function WalletTransactionsTab({
                                         >
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center">
-                                                    {tx.type === "UNKNOWN" ? (
-                                                        <Avatar>
-                                                            <div
-                                                                className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-lg font-bold">
+                                                    <Avatar>
+                                                        {tx.type === "UNKNOWN" ? (
+                                                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-lg font-bold">
                                                                 ?
                                                             </div>
-                                                        </Avatar>
-                                                    ) : (
-                                                        <Avatar>
-                                                            <AvatarImage
-                                                                src={tx.picture || ""}
-                                                                alt={tx.symbol || "?"}
-                                                            />
-                                                        </Avatar>
-                                                    )}
+                                                        ) : (
+                                                            <AvatarImage src={tx.picture || ""} alt={tx.symbol || "?"} />
+                                                        )}
+                                                    </Avatar>
                                                     <div className="ml-2">
                                                         <p className="text-sm">
                                                             {tx.type === "SENT"
@@ -173,20 +195,16 @@ export default function WalletTransactionsTab({
                                                                         ? t("wallet.closedAccount")
                                                                         : tx.type === "APP INTERACTION"
                                                                             ? t("wallet.appInteraction")
-                                                                            : t("wallet.unknown")} {tx.symbol}
+                                                                            : t("wallet.unknown")}{" "}
+                                                            {tx.symbol}
                                                         </p>
-
                                                         <p className="text-sm text-muted-foreground">
                                                             {new Date(tx.timestamp * 1000).toLocaleString()}
                                                         </p>
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p
-                                                        className={`font-medium ${
-                                                            amount > 0 ? "text-green-500" : "text-red-500"
-                                                        }`}
-                                                    >
+                                                    <p className={`font-medium ${amount > 0 ? "text-green-500" : "text-red-500"}`}>
                                                         {amount > 0 ? "+" : "-"}
                                                         {Math.abs(amount).toLocaleString(undefined, {
                                                             maximumFractionDigits: 4,
@@ -210,9 +228,7 @@ export default function WalletTransactionsTab({
                             </div>
                         ))
                     ) : (
-                        <p className="text-center text-muted-foreground">
-                            {t("loading.title")}
-                        </p>
+                        <p className="text-center text-muted-foreground">{t("loading.title")}</p>
                     )}
                     {loading && loadedTransactions.length > 0 && (
                         <div className="text-center py-2 text-muted-foreground text-sm">
@@ -220,7 +236,7 @@ export default function WalletTransactionsTab({
                         </div>
                     )}
                 </div>
-                <div ref={observerRef} className="h-8"/>
+                <div ref={observerRef} className="h-8" />
             </div>
         </ScrollArea>
     );

@@ -107,10 +107,9 @@ export default function WalletSendDialog({
       const amountInUnits = BigInt(
           Math.round(amount * Math.pow(10, decimals))
       );
-
       if (
           token.mint ===
-          "So11111111111111111111111111111111111111112"
+          "11111111111111111111111111111111"
       ) {
         tx.add(
             SystemProgram.transfer({

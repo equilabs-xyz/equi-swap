@@ -14,8 +14,13 @@ export default function WalletBalanceHeader({
   const { showBalance, setShowBalance, showUsd, setShowUsd } =
     useWalletUIStore();
   const { t } = useTranslation();
-  const usdTotal = walletValue?.total || 0;
-  const solTotal = solValue?.total || solBalance;
+  console.log("walletValue.total:", walletValue);
+
+
+  const usdTotal = walletValue?.total?.total ?? 0;
+
+
+  const solTotal = solValue?.total?.total ?? 0;
 
   const displayed = showUsd ? usdTotal : solTotal;
 

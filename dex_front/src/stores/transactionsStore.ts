@@ -1,48 +1,82 @@
 import { create } from "zustand";
 
-interface Transaction {
-  signature: string;
-  amount: string;
-  symbol: string;
-  status: string;
+type Transaction = any; // Replace with your type
+type Signature = string;
+
+interface WalletCacheEntry {
+  signatures: Signature[];
+  transactions: Transaction[];
   timestamp: number;
-  type: string;
-  date: string;
-  picture?: string;
 }
 
-interface TransactionsState {
-  allSignatures: string[];
+interface TransactionsStore {
+  walletAddress: string | null;
+  cache: Record<string, WalletCacheEntry>;
+
+  allSignatures: Signature[];
   loadedTransactions: Transaction[];
   loadCount: number;
   loading: boolean;
   error: string | null;
-  setAllSignatures: (sigs: string[]) => void;
+
+  // ⚙️ Wallet-aware caching
+  setWallet: (address: string) => void;
+  addTransactions: (wallet: string, sigs: Signature[], txs: Transaction[]) => void;
+  getTransactions: (wallet: string, ttlMs?: number) => WalletCacheEntry | null;
+
+  // Standard UI state setters
+  setAllSignatures: (sigs: Signature[]) => void;
   setLoadedTransactions: (txs: Transaction[]) => void;
   setLoadCount: (count: number) => void;
-  setLoading: (val: boolean) => void;
-  setError: (err: string | null) => void;
-  reset: () => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
 }
 
-export const useTransactionsStore = create<TransactionsState>((set) => ({
+export const useTransactionsStore = create<TransactionsStore>((set, get) => ({
+  walletAddress: null,
+  cache: {},
+
   allSignatures: [],
   loadedTransactions: [],
   loadCount: 10,
   loading: false,
   error: null,
-  setAllSignatures: (sigs) =>
-    set({ allSignatures: sigs, loadCount: 10, loadedTransactions: [] }),
+
+  setWallet: (address) => {
+    const prev = get().walletAddress;
+    if (prev !== address) {
+      set({
+        walletAddress: address,
+        allSignatures: [],
+        loadedTransactions: [],
+        loadCount: 10,
+      });
+    }
+  },
+
+  addTransactions: (wallet, sigs, txs) => {
+    set((state) => ({
+      cache: {
+        ...state.cache,
+        [wallet]: {
+          signatures: sigs,
+          transactions: txs,
+          timestamp: Date.now(),
+        },
+      },
+    }));
+  },
+
+  getTransactions: (wallet, ttlMs = 5 * 60 * 1000) => {
+    const entry = get().cache[wallet];
+    if (!entry) return null;
+    const isFresh = Date.now() - entry.timestamp < ttlMs;
+    return isFresh ? entry : null;
+  },
+
+  setAllSignatures: (sigs) => set({ allSignatures: sigs }),
   setLoadedTransactions: (txs) => set({ loadedTransactions: txs }),
   setLoadCount: (count) => set({ loadCount: count }),
-  setLoading: (val) => set({ loading: val }),
+  setLoading: (loading) => set({ loading }),
   setError: (err) => set({ error: err }),
-  reset: () =>
-    set({
-      allSignatures: [],
-      loadedTransactions: [],
-      loadCount: 10,
-      loading: false,
-      error: null,
-    }),
 }));
