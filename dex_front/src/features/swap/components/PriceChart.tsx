@@ -95,7 +95,12 @@ export default function PriceChart(props: PriceChartProps) {
         const url = new URL(
             "https://birdeye-proxy.raydium.io/defi/ohlcv/base_quote",
         );
-        url.searchParams.set("base_address", baseAddress);
+        url.searchParams.set(
+            "base_address",
+            baseAddress === "11111111111111111111111111111111"
+                ? "So11111111111111111111111111111111111111112"
+                : baseAddress
+        );
         url.searchParams.set("quote_address", quoteAddress);
         url.searchParams.set("type", interval);
         url.searchParams.set("time_from", String(timeFrom));
