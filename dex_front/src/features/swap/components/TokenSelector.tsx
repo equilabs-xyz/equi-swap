@@ -191,10 +191,7 @@ export default function TokenSelector({
       </span>
       </button>
   );
-// Right before your return statement
-  console.log("Rendering - displayAll:", displayAll);
-  console.log("Rendering - displayWallet:", displayWallet);
-  console.log("Rendering - loading:", loading);
+
   return (
       <div className="w-full space-y-1">
         {label && (

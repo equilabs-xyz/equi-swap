@@ -9,8 +9,6 @@ export const useSPLTokenAccountListeners = ({
     onAccountChange: (changedPubkey: string) => void;
 }) => {
 
-    console.log("RPC:", import.meta.env.VITE_SOLANA_RPC);
-    console.log("WS:", import.meta.env.VITE_WS_SOLANA_RPC);
 
     const connectionRef = useRef(
         new Connection(import.meta.env.VITE_SOLANA_RPC, {

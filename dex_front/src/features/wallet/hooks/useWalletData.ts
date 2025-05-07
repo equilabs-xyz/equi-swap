@@ -25,7 +25,6 @@ export function useWalletData(publicKey?: PublicKey | null) {
   const fetchWalletData = async (): Promise<WalletData | null> => {
     if (!walletKey) return null;
 
-    console.log("📦 Fetching wallet data for:", walletKey);
     const response = await fetch(`${API_ENDPOINT}?address=${walletKey}`);
     const result: RawWalletApiResult = await response.json();
     const data = result.result;
