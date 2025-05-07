@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -7,8 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "react-i18next";
 import { ClipboardCopyIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
 import { toast } from "sonner";
-import {TokenInfo} from "@/types";
-import {useAllTokens, useWalletTokens} from "@/features/swap/hooks/useTokenSearch.ts";
+import { TokenInfo } from "@/types";
 
 interface Props {
   label: string;
@@ -27,6 +26,15 @@ export function formatBalance(balance?: number, decimals = 9) {
   });
 }
 
+// Debounce utility function
+function debounce<T extends (...args: any[]) => any>(fn: T, delay: number) {
+  let timeoutId: NodeJS.Timeout;
+  return function (...args: Parameters<T>) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
+}
+
 export default function TokenSelector({
                                         label,
                                         selected,
@@ -36,9 +44,11 @@ export default function TokenSelector({
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const { data: walletTokens = [], isLoading: walletLoading } = useWalletTokens(publicKey);
-  const { data: allTokens = [], isLoading: allLoading } = useAllTokens(search);
-  const loading = walletLoading || allLoading;
+  const [walletTokens, setWalletTokens] = useState<TokenInfo[]>([]);
+  const [allTokens, setAllTokens] = useState<TokenInfo[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+
   const normalize = (t: any, fromWallet: boolean): TokenInfo => ({
     name: t.name,
     symbol: t.symbol,
@@ -46,12 +56,12 @@ export default function TokenSelector({
     logoURI: t.imageUri,
     decimals: t.decimals,
     balance: fromWallet
-        ? (t.totalUiAmount ?? 0)
-        : (t.balance ?? t.totalUiAmount ?? 0),
+        ? t.totalUiAmount ?? 0
+        : t.balance ?? t.totalUiAmount ?? 0,
     verified: t.verified ?? false,
   });
 
-  const fetchOnOpen = async () => {
+  const fetchInitialTokens = async () => {
     setLoading(true);
     try {
       const walletRes = await fetch(
@@ -60,9 +70,7 @@ export default function TokenSelector({
       const wRaw: any[] = walletRes.result?.tokens ?? [];
       const w = wRaw.filter((t) => t.swappable).map((t) => normalize(t, true));
 
-      const allRes = await fetch(`/api/searchToken?query=`).then((r) =>
-          r.json()
-      );
+      const allRes = await fetch(`/api/searchToken?query=`).then((r) => r.json());
       const aRaw: any[] = allRes.tokens ?? [];
       const a = aRaw.filter((t) => t.swappable).map((t) => normalize(t, false));
 
@@ -77,49 +85,59 @@ export default function TokenSelector({
     }
   };
 
-  const fetchOnSearch = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(
-          `/api/searchToken?query=${encodeURIComponent(search)}`
-      ).then((r) => r.json());
-      const raw: any[] = res.tokens ?? [];
-      const filtered = raw
-          .filter((t) => t.swappable)
-          .map((t) => normalize(t, false));
-      setAllTokens(filtered);
-    } catch (err) {
-      console.error(err);
-      setAllTokens([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const debouncedSearch = useCallback(
+      debounce(async (searchTerm: string) => {
+        if (!open) return;
+
+        try {
+          setLoading(true);
+          const res = await fetch(
+              `/api/searchToken?query=${encodeURIComponent(searchTerm)}`
+          ).then((r) => r.json());
+          const raw: any[] = res.tokens ?? [];
+          const filtered = raw
+              .filter((t) => t.swappable)
+              .map((t) => normalize(t, false));
+          setAllTokens(filtered);
+
+        } catch (err) {
+          console.error(err);
+          setAllTokens([]);
+        } finally {
+          setLoading(false);
+          setIsTyping(false);
+        }
+      }, 500),
+      [open]
+  );
 
   useEffect(() => {
     if (open) {
       setSearch("");
-      fetchOnOpen();
+      fetchInitialTokens();
     }
   }, [open, publicKey]);
 
-  useEffect(() => {
-    if (!open) return;
-    if (search === "") {
-      fetchOnOpen();
-      return;
-    }
-    const id = setTimeout(fetchOnSearch, 200);
-    return () => clearTimeout(id);
-  }, [search]);
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearch(value);
+    setIsTyping(true);
+    debouncedSearch(value);
+  };
 
-  const matches = (t: TokenInfo) =>
-      `${t.symbol} ${t.name}`.toLowerCase().includes(search.toLowerCase());
-
+  const matches = (t: TokenInfo) => {
+    const searchLower = search.toLowerCase();
+    return (
+        t.symbol.toLowerCase().includes(searchLower) ||
+        t.name.toLowerCase().includes(searchLower) ||
+        t.address.toLowerCase().includes(searchLower)
+    );
+  };
   const displayWallet = walletTokens.filter(matches);
   const displayAll = allTokens.filter(matches);
 
   const renderToken = (token: TokenInfo) => (
+
       <button
           key={token.address}
           onClick={() => {
@@ -133,6 +151,9 @@ export default function TokenSelector({
               src={token.logoURI}
               alt={token.symbol}
               className="w-5 h-5 rounded-full"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/placeholder-token.png';
+              }}
           />
           <div className="flex flex-col text-left">
           <span className="text-sm font-medium flex items-center gap-1">
@@ -170,7 +191,10 @@ export default function TokenSelector({
       </span>
       </button>
   );
-
+// Right before your return statement
+  console.log("Rendering - displayAll:", displayAll);
+  console.log("Rendering - displayWallet:", displayWallet);
+  console.log("Rendering - loading:", loading);
   return (
       <div className="w-full space-y-1">
         {label && (
@@ -186,6 +210,9 @@ export default function TokenSelector({
                         src={selected.logoURI}
                         alt={selected.symbol}
                         className="w-6 h-6 rounded-full"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/placeholder-token.png';
+                        }}
                     />
                     <span className="font-medium">{selected.symbol}</span>
                   </div>
@@ -202,12 +229,12 @@ export default function TokenSelector({
             <Input
                 placeholder={t("token.search")}
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={handleSearchChange}
                 className="mb-3"
             />
 
             <ScrollArea className="max-h-96 space-y-2">
-              {loading ? (
+              {(loading || isTyping) ? (
                   Array.from({ length: 5 }).map((_, i) => (
                       <div key={i} className="flex items-center gap-3 px-3 py-2">
                         <Skeleton className="h-5 w-5 rounded-full" />
