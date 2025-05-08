@@ -40,8 +40,8 @@ export default function SettingsLayout() {
             <p>{t("settings.language")}</p>
           </div>
           <Select
-            value={i18n.language}
-            onValueChange={(lang) => i18n.changeLanguage(lang)}
+              value={i18n.language || "en"}
+              onValueChange={(lang) => i18n.changeLanguage(lang)}
           >
             <SelectTrigger className="w-[140px]">
               <SelectValue />
