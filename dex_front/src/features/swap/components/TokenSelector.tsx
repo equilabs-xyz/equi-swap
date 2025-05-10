@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { ClipboardCopyIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
 import { toast } from "sonner";
 import { TokenInfo } from "@/types";
+import {useTokenCache} from "@/features/swap/hooks/useTokenSearch.ts";
 
 interface Props {
   label: string;
@@ -45,6 +46,7 @@ export default function TokenSelector({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [walletTokens, setWalletTokens] = useState<TokenInfo[]>([]);
+  const { allTokens: cachedTokens, lastFetched, setAllTokens: cacheTokens } = useTokenCache();
   const [allTokens, setAllTokens] = useState<TokenInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
@@ -69,13 +71,22 @@ export default function TokenSelector({
       ).then((r) => r.json());
       const wRaw: any[] = walletRes.result?.tokens ?? [];
       const w = wRaw.filter((t) => t.swappable).map((t) => normalize(t, true));
-
-      const allRes = await fetch(`/api/searchToken?query=`).then((r) => r.json());
-      const aRaw: any[] = allRes.tokens ?? [];
-      const a = aRaw.filter((t) => t.swappable).map((t) => normalize(t, false));
-
       setWalletTokens(w);
-      setAllTokens(a);
+
+      const now = Date.now();
+      const tenMin = 10 * 60 * 1000;
+
+      if (cachedTokens && lastFetched && now - lastFetched < tenMin) {
+        setAllTokens(cachedTokens);
+      } else {
+        const allRes = await fetch(`/api/searchToken?query=`).then((r) =>
+            r.json()
+        );
+        const aRaw: any[] = allRes.tokens ?? [];
+        const a = aRaw.filter((t) => t.swappable).map((t) => normalize(t, false));
+        setAllTokens(a);
+        cacheTokens(a);
+      }
     } catch (err) {
       console.error(err);
       setWalletTokens([]);

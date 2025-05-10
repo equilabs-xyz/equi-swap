@@ -141,7 +141,6 @@ export default function WalletSendDialog({
         );
       }
 
-
       const signature = await sendTransaction(tx, connection);
       await connection.confirmTransaction(signature, "confirmed");
 
