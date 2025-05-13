@@ -2,41 +2,48 @@ import { useEffect, useRef } from "react";
 
 interface QuoteParams {
     signer: string;
-    mintIn: string;     // maps to `x_mint`
-    mintOut: string;    // maps to `y_mint`
-    inAmount: number;   // maps to `amount`
+    x_mint: string;     // maps to `x_mint`
+    y_mint: string;    // maps to `y_mint`
+    amount: number;   // maps to `amount`
     slippage: number;   // maps to `slippage` (u8)
-    priorityFee: number;// maps to `priority_fee` (u16)
-    onQuote: (outAmount: number) => void;
+    priority_fee: number;// maps to `priority_fee` (u16)
+    onQuote: (expected_out: number) => void;
 }
+const WS_QUOTE_CONNECTION = import.meta.env.VITE_WS_QUOTE_CONNECTION;
 
 export function useQuoteWebSocket(params: QuoteParams | null): void {
     const wsRef = useRef<WebSocket | null>(null);
+    const lastHashRef = useRef<string>("");
+
 
     useEffect(() => {
         if (!params) return;
 
-        const { signer, mintIn, mintOut, inAmount, slippage, priorityFee, onQuote } = params;
+        const { signer, x_mint, y_mint, amount, slippage, priority_fee, onQuote } = params;
 
-        if (!signer || !mintIn || !mintOut || inAmount <= 0) return;
+        if (!signer || !x_mint || !y_mint || amount <= 0) return;
+
+        const paramHash = JSON.stringify({ signer, x_mint, y_mint, amount, slippage, priority_fee });
+
+        if (paramHash === lastHashRef.current) return;
+        lastHashRef.current = paramHash;
 
         if (wsRef.current) {
             wsRef.current.close();
         }
 
-        const ws = new WebSocket("ws://localhost:3000");
+        const ws = new WebSocket(WS_QUOTE_CONNECTION);
         wsRef.current = ws;
 
         ws.onopen = () => {
             const payload = {
                 signer,
-                x_mint: mintIn,
-                y_mint: mintOut,
-                amount: inAmount.toString(), // convert to string to preserve u128 compatibility
+                x_mint,
+                y_mint,
+                amount,
                 slippage,
-                priority_fee: priorityFee,
+                priority_fee,
             };
-
             ws.send(JSON.stringify(payload));
         };
 
@@ -54,13 +61,6 @@ export function useQuoteWebSocket(params: QuoteParams | null): void {
         return () => {
             ws.close();
         };
-    }, [
-        params?.signer,
-        params?.mintIn,
-        params?.mintOut,
-        params?.inAmount,
-        params?.slippage,
-        params?.priorityFee,
-        params?.onQuote,
-    ]);
+    }, [params]); // <=== Only depends on the object itself
+
 }

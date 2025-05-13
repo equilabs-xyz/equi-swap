@@ -1,5 +1,5 @@
 // SwapLayout.tsx
-import { useEffect, useState } from "react";
+import {useCallback, useEffect, useState} from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { ArrowsUpDownIcon } from "@heroicons/react/24/outline";
 import Header from "./components/Header";
@@ -82,25 +82,26 @@ export default function SwapLayout() {
     }
   }, [topTokens]);
 
+  const onQuote = useCallback((expected_out: number) => {
+    const formatted = expected_out.toFixed(6);
+    setIsOutputUpdating(true);
+    setOutputAmount(formatted);
+    setTimeout(() => setIsOutputUpdating(false), 300);
+  }, []);
+
   useQuoteWebSocket(
       hasEnoughBalance
           ? {
             signer: publicKey?.toBase58() ?? "",
-            mintIn: inputToken?.address ?? "",
-            mintOut: outputToken?.address ?? "",
-            inAmount: inAmountNum,
+            x_mint: inputToken?.address ?? "",
+            y_mint: outputToken?.address ?? "",
+            amount: inAmountNum,
             slippage: getMaxSlippage(),
-            priorityFee: getPriorityFee(),
-            onQuote: (outAmount) => {
-              const formatted = outAmount.toFixed(6);
-              setIsOutputUpdating(true);
-              setOutputAmount(formatted);
-              setTimeout(() => setIsOutputUpdating(false), 300);
-            },
+            priority_fee: getPriorityFee(),
+            onQuote,
           }
           : null
   );
-
 
   const handleSwapClick = () => {
     swapTokens();

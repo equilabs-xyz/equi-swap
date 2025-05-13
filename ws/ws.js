@@ -1,43 +1,51 @@
-const WebSocket = require('ws');
-const { URL } = require('url');
+const WebSocket = require("ws");
+const wss = new WebSocket.Server({ port: 3000 });
 
-const wss = new WebSocket.Server({ port: 8080 });
-console.log("WebSocket server running at ws://localhost:8080");
+console.log("WebSocket server running at ws://localhost:3000");
 
-wss.on('connection', (socket, req) => {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    const signer = url.searchParams.get("signer");
-    const mintIn = url.searchParams.get("mintIn");
-    const mintOut = url.searchParams.get("mintOut");
-    const inAmount = parseFloat(url.searchParams.get("inAmount"));
-    const slippage = parseFloat(url.searchParams.get("slippage"));
-    const priorityFee = parseFloat(url.searchParams.get("priorityFee"));
+wss.on("connection", (socket) => {
+    console.log("New client connected");
 
-    console.log(`New subscription from ${signer}`);
-
-    let baseRate = 100;
+    let interval = null;
+    let lastRequest = null;
     let tick = 0;
 
-    const interval = setInterval(() => {
-        const fluctuation = (Math.sin(tick / 5) + 1) * 0.5;
-        const outAmount = baseRate + fluctuation * 10;
+    socket.on("message", (msg) => {
+        try {
+            const req = JSON.parse(msg.toString());
+            lastRequest = req;
+            console.log(`Subscribed: ${req.signer}`);
+        } catch (e) {
+            console.error("Invalid message", e);
+        }
+    });
 
-        socket.send(JSON.stringify({
-            type: 'quote',
-            signer,
-            mintIn,
-            mintOut,
-            inAmount,
-            slippage,
-            priorityFee,
-            outAmount: outAmount.toFixed(6),
-            timestamp: Date.now()
-        }));
+    interval = setInterval(() => {
+        if (!lastRequest) return;
+
+        const { signer, x_mint, y_mint, amount, slippage, priority_fee } = lastRequest;
+
+        const fluctuation = (Math.sin(tick / 5) + 1) * 0.5;
+        const outAmount = 100 + fluctuation * 10;
+
+        socket.send(
+            JSON.stringify({
+                type: "quote",
+                signer,
+                x_mint,
+                y_mint,
+                amount,
+                slippage,
+                priority_fee,
+                expected_out: outAmount.toFixed(6),
+                timestamp: Date.now(),
+            })
+        );
 
         tick++;
-    }, 3000);
+    }, 3000); // adjust to 3s or 15s if needed
 
-    socket.on('close', () => {
+    socket.on("close", () => {
         clearInterval(interval);
         console.log("Client disconnected");
     });
