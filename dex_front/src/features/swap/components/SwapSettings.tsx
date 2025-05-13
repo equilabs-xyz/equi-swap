@@ -92,3 +92,14 @@ export function SwapSettingsDialog() {
         </Dialog>
     );
 }
+
+
+export function getMaxSlippage(): number {
+    const stored = localStorage.getItem("swap:maxSlippage");
+    return stored ? parseFloat(stored) : 0.5;
+}
+
+export function getPriorityFee(): number {
+    const stored = localStorage.getItem("swap:priorityFee");
+    return stored ? parseInt(stored, 10) / 1_000_000 : 0.0001;
+}

@@ -1,4 +1,5 @@
 export interface PriceChartProps {
+    refreshTrigger?: number;
     baseAddress: string;
     quoteAddress: string;
     baseLogoURI?: string;

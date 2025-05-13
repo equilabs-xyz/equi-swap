@@ -4,6 +4,7 @@ use solana_sdk::pubkey::Pubkey;
 use crate::{REQWEST_CLIENT, SEEN_SIGNATURES};
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 use dotenv::dotenv;
 use serde_json::{json, Value};
@@ -146,6 +147,7 @@ async fn get_parsed_transaction_solflare(
         .header("sec-fetch-site", "none")
         .header("sec-fetch-storage-access", "active")
         .header("user-agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1")
+        .timeout(Duration::from_secs(3))
         .json(&body)
         .send()
         .await?;
@@ -155,7 +157,10 @@ async fn get_parsed_transaction_solflare(
     let raw_text = response.text().await?;
     let chunks = raw_text.split("<|EOF|>").filter(|c| !c.trim().is_empty());
 
-    let mut results = Vec::new();
+    let mut parsed_txs = Vec::new();
+
+    let semaphore = Arc::new(Semaphore::new(10));
+    let mut futures = FuturesUnordered::new();
 
     for chunk in chunks {
         let json: Value = match serde_json::from_str(chunk.trim()) {
@@ -169,15 +174,29 @@ async fn get_parsed_transaction_solflare(
         if let Some(arr) = json["data"].as_array() {
             for tx in arr {
                 if let Some(tx) = tx.as_object() {
-                    if let Some(normalized) = parse_solflare_tx(tx.clone(), wallet) {
-                        results.push(normalized);
-                    }
+                    let tx = tx.clone();
+                    let wallet = *wallet;
+                    let permit = semaphore.clone().acquire_owned().await.unwrap();
+
+                    futures.push(tokio::spawn(async move {
+                        let _permit = permit;
+                        parse_solflare_tx(tx, &wallet)
+                    }));
                 }
             }
         }
     }
 
-    Ok(results)
+    while let Some(result) = futures.next().await {
+        match result {
+            Ok(Some(tx)) => parsed_txs.push(tx),
+            Ok(None) => {} // нормально
+            Err(e) => eprintln!("tokio join error: {e}"),
+        }
+    }
+
+
+    Ok(parsed_txs)
 }
 pub async fn handle_parse_transactions(
     req: TransactionParseRequest,
@@ -902,6 +921,7 @@ const SOL_LOGO: &str = "https://raw.githubusercontent.com/solana-labs/token-list
 
 
 use tokio;
+use tokio::sync::Semaphore;
 
 #[tokio::test]
 async fn test_token_metadata_resolution() {

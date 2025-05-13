@@ -1,5 +1,5 @@
 // components/PriceChart.tsx
-import {useLayoutEffect, useRef, useState} from "react";
+import {useLayoutEffect, useRef, useState, useEffect} from "react";
 import {
     createChart,
     UTCTimestamp,
@@ -8,9 +8,9 @@ import {
     LineSeries,
     LineSeriesOptions,
     LineStyle,
+    ColorType
 } from "lightweight-charts";
-import { ColorType } from "lightweight-charts";
-import {PriceChartProps} from "@/types";
+import { PriceChartProps } from "@/types";
 
 interface OhlcvItem {
     unixTime: number;
@@ -36,13 +36,11 @@ export default function PriceChart(props: PriceChartProps) {
         timeTo,
         height = 40,
         lineColor = "#22D1F8",
+        refreshTrigger,
     } = props;
 
-    // safe fallbacks
-    const baseSymbol =
-        propBaseSymbol ?? (baseAddress ? baseAddress.slice(0, 4) : "");
-    const quoteSymbol =
-        propQuoteSymbol ?? (quoteAddress ? quoteAddress.slice(0, 4) : "");
+    const baseSymbol = propBaseSymbol ?? (baseAddress ? baseAddress.slice(0, 4) : "");
+    const quoteSymbol = propQuoteSymbol ?? (quoteAddress ? quoteAddress.slice(0, 4) : "");
 
     const containerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
@@ -51,39 +49,37 @@ export default function PriceChart(props: PriceChartProps) {
     const [lastPrice, setLastPrice] = useState<number | null>(null);
     const [changePct, setChangePct] = useState<number | null>(null);
 
+    // Init chart once
     useLayoutEffect(() => {
         const container = containerRef.current;
         if (!container) return;
 
-        // 1) create the sparkline chart
         const chart = createChart(container, {
             width: container.clientWidth,
             height,
             layout: {
-                background: {type: ColorType.Solid, color: "transparent"},
+                background: { type: ColorType.Solid, color: "transparent" },
                 textColor: "transparent",
             },
             grid: {
-                vertLines: {visible: false},
-                horzLines: {visible: false},
+                vertLines: { visible: false },
+                horzLines: { visible: false },
             },
-            timeScale: {visible: false},
-            rightPriceScale: {visible: false},
-            leftPriceScale: {visible: false},
+            timeScale: { visible: false },
+            rightPriceScale: { visible: false },
+            leftPriceScale: { visible: false },
             crosshair: {
                 mode: 0,
-                vertLine: {visible: false},
-                horzLine: {visible: false},
-            }
+                vertLine: { visible: false },
+                horzLine: { visible: false },
+            },
         });
 
         chartRef.current = chart;
 
-        // immediately remove the TV logo
         const logo = container.querySelector("#tv-attr-logo");
         if (logo) logo.remove();
 
-        // 2) add our line series
         seriesRef.current = chart.addSeries(LineSeries, {
             color: lineColor,
             lineStyle: LineStyle.Solid,
@@ -91,10 +87,21 @@ export default function PriceChart(props: PriceChartProps) {
             priceLineVisible: false,
         } as LineSeriesOptions);
 
-        // 3) fetch & plot closes, compute last/percent
-        const url = new URL(
-            "https://birdeye-proxy.raydium.io/defi/ohlcv/base_quote",
-        );
+        const ro = new ResizeObserver((entries) => {
+            const w = entries[0].contentRect.width;
+            if (w > 0) chart.resize(w, height);
+        });
+        ro.observe(container);
+
+        return () => {
+            ro.disconnect();
+            chart.remove();
+        };
+    }, [baseAddress, quoteAddress, interval, height, lineColor]);
+
+    // Refresh chart data every 15s using refreshTrigger
+    useEffect(() => {
+        const url = new URL("https://birdeye-proxy.raydium.io/defi/ohlcv/base_quote");
         url.searchParams.set(
             "base_address",
             baseAddress === "11111111111111111111111111111111"
@@ -113,10 +120,10 @@ export default function PriceChart(props: PriceChartProps) {
                 if (items.length === 0) return;
 
                 const data = items
-                    .map((b) => ({time: b.unixTime as UTCTimestamp, value: b.c}))
+                    .map((b) => ({ time: b.unixTime as UTCTimestamp, value: b.c }))
                     .sort((a, b) => a.time - b.time);
 
-                seriesRef.current!.setData(data);
+                seriesRef.current?.setData(data);
 
                 const first = data[0].value;
                 const last = data[data.length - 1].value;
@@ -124,48 +131,19 @@ export default function PriceChart(props: PriceChartProps) {
                 setChangePct(((last - first) / first) * 100);
             })
             .catch(console.error);
-
-        // 4) auto resize
-        const ro = new ResizeObserver((entries) => {
-            const w = entries[0].contentRect.width;
-            if (w > 0) chart.resize(w, height);
-        });
-        ro.observe(container);
-
-        return () => {
-            ro.disconnect();
-            chart.remove();
-        };
-    }, [
-        baseAddress,
-        quoteAddress,
-        interval,
-        timeFrom,
-        timeTo,
-        height,
-        lineColor,
-    ]);
+    }, [refreshTrigger]);
 
     return (
         <div className="space-y-1">
-            {/* header: logos, symbols, last price + % */}
             <div className="flex items-center justify-between gap-2 mb-1">
                 <div className="flex items-center gap-1">
                     {baseLogoURI && (
-                        <img
-                            src={baseLogoURI}
-                            alt={baseSymbol}
-                            className="w-4 h-4 rounded-full"
-                        />
+                        <img src={baseLogoURI} alt={baseSymbol} className="w-4 h-4 rounded-full" />
                     )}
                     <span className="text-xs font-medium">{baseSymbol}</span>
                     <span className="text-xs text-muted-foreground">/</span>
                     {quoteLogoURI && (
-                        <img
-                            src={quoteLogoURI}
-                            alt={quoteSymbol}
-                            className="w-4 h-4 rounded-full"
-                        />
+                        <img src={quoteLogoURI} alt={quoteSymbol} className="w-4 h-4 rounded-full" />
                     )}
                     <span className="text-xs font-medium">{quoteSymbol}</span>
                 </div>
@@ -181,18 +159,16 @@ export default function PriceChart(props: PriceChartProps) {
                                         : "text-muted-foreground"
                             }
                         >
-              {changePct > 0 ? "+" : ""}
+                            {changePct > 0 ? "+" : ""}
                             {changePct.toFixed(2)}%
-            </span>
+                        </span>
                     </div>
                 )}
             </div>
-
-            {/* the sparkline itself */}
             <div
                 ref={containerRef}
                 className="w-full"
-                style={{height, minWidth: 100}}
+                style={{ height, minWidth: 100 }}
             />
         </div>
     );
