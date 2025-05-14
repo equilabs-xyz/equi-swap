@@ -13,6 +13,8 @@ interface QuoteParams {
 
 const WS_QUOTE_CONNECTION = import.meta.env.VITE_WS_QUOTE_CONNECTION;
 
+
+
 export function useQuoteWebSocket(params: QuoteParams | null): void {
     const wsRef = useRef<WebSocket | null>(null);
     const lastHashRef = useRef<string>("");
@@ -42,6 +44,7 @@ export function useQuoteWebSocket(params: QuoteParams | null): void {
         }).toString();
 
         const ws = new WebSocket(`${WS_QUOTE_CONNECTION}?${query}`);
+        console.log("WebSocket URL:", `${WS_QUOTE_CONNECTION}?${query}`);
         wsRef.current = ws;
 
         ws.onopen = () => {
