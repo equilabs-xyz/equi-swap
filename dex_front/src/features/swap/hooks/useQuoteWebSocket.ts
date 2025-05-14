@@ -34,13 +34,17 @@ export function useQuoteWebSocket(params: QuoteParams | null): void {
             wsRef.current.close();
         }
 
+        const ws_slippage = slippage * 100;
+        const ws_priority_fee = priority_fee * 1_000_000_000;
+
+
         const query = new URLSearchParams({
             signer,
             x_mint,
             y_mint,
             amount: amount.toString(),
-            slippage: slippage.toString(),
-            priority_fee: priority_fee.toString(),
+            slippage: ws_slippage.toString(),
+            priority_fee: ws_priority_fee.toString(),
         }).toString();
 
         const ws = new WebSocket(`${WS_QUOTE_CONNECTION}?${query}`);
