@@ -5,7 +5,13 @@ import { useSwapStore } from "@/stores/swap-ui";
 import { useTokenBalances } from "@/features/swap/hooks/useTokenBalances";
 import { useWallet } from "@solana/wallet-adapter-react";
 
-export default function SwapButton({ disabled }: { disabled: boolean }) {
+export default function SwapButton({
+                                     disabled,
+                                     onClick,
+                                   }: {
+  disabled: boolean;
+  onClick: () => void | Promise<void>;
+}) {
   const { t } = useTranslation();
   const { publicKey } = useWallet();
   const { inputToken, inputAmount } = useSwapStore();
@@ -21,7 +27,11 @@ export default function SwapButton({ disabled }: { disabled: boolean }) {
       : t("swap.button");
 
   return (
-      <Button className="w-full" disabled={disabled || insufficient}>
+      <Button
+          className="w-full"
+          disabled={disabled || insufficient}
+          onClick={onClick}
+      >
         {label}
       </Button>
   );

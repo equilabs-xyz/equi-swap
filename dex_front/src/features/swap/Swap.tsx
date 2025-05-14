@@ -1,6 +1,8 @@
 // SwapLayout.tsx
 import {useCallback, useEffect, useState} from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { useConnection } from "@solana/wallet-adapter-react";
+
 import { ArrowsUpDownIcon } from "@heroicons/react/24/outline";
 import Header from "./components/Header";
 import TokenInputSection from "./components/TokenInputSection";
@@ -15,6 +17,7 @@ import {
   SwapSettingsDialog,
 } from "@/features/swap/components/SwapSettings";
 import { useQuoteWebSocket } from "@/features/swap/hooks/useQuoteWebSocket";
+import {useHandleSwapClick} from "@/features/swap/hooks/useHandleSwapClick.ts";
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
@@ -46,7 +49,7 @@ export default function SwapLayout() {
   const inputBal = inputMint ? tokenBalances[inputMint] ?? 0 : 0;
   const inAmountNum = parseFloat(inputAmount || "0");
   const hasEnoughBalance = inputBal >= inAmountNum && inAmountNum > 0;
-
+  const { connection } = useConnection();
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -107,6 +110,9 @@ export default function SwapLayout() {
     swapTokens();
     setRotated((prev) => !prev);
   };
+  const swap = useHandleSwapClick(connection);
+
+
 
   const disableSwap =
       !connected || !inputToken || !outputToken || !inputAmount || isOutputUpdating;
@@ -151,7 +157,7 @@ export default function SwapLayout() {
               publicKey={publicKey?.toBase58() ?? ""}
           />
 
-          <SwapButton disabled={disableSwap} />
+          <SwapButton disabled={disableSwap} onClick={swap}/>
         </div>
 
         {inputToken && outputToken && (

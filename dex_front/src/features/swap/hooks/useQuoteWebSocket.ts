@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import {useEffect, useRef} from "react";
+import {useSwapStore} from "@/stores/swap-ui.ts";
 
 interface QuoteParams {
     signer: string;
@@ -7,7 +8,7 @@ interface QuoteParams {
     amount: number;
     slippage: number;
     priority_fee: number;
-    onQuote: (expected_out: number) => void;
+    onQuote: (expected_out: number, transaction?: string) => void;
 }
 
 const WS_QUOTE_CONNECTION = import.meta.env.VITE_WS_QUOTE_CONNECTION;
@@ -15,6 +16,7 @@ const WS_QUOTE_CONNECTION = import.meta.env.VITE_WS_QUOTE_CONNECTION;
 export function useQuoteWebSocket(params: QuoteParams | null): void {
     const wsRef = useRef<WebSocket | null>(null);
     const lastHashRef = useRef<string>("");
+    const setTransaction = useSwapStore((s) => s.setTransaction); // ✅ Add this
 
     useEffect(() => {
         if (!params) return;
@@ -22,12 +24,10 @@ export function useQuoteWebSocket(params: QuoteParams | null): void {
         const { signer, x_mint, y_mint, amount, slippage, priority_fee, onQuote } = params;
         if (!signer || !x_mint || !y_mint || amount <= 0) return;
 
-        // Hash to detect real param changes
         const paramHash = `${signer}-${x_mint}-${y_mint}-${amount}-${slippage}-${priority_fee}`;
         if (paramHash === lastHashRef.current) return;
         lastHashRef.current = paramHash;
 
-        // Cleanup old socket
         if (wsRef.current) {
             wsRef.current.close();
         }
@@ -51,9 +51,12 @@ export function useQuoteWebSocket(params: QuoteParams | null): void {
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log("Quote message received:", data);
-                if (data.expected_out) {
-                    onQuote(parseFloat(data.expected_out));
+                const out = parseFloat(data.expected_out);
+                const tx = data.transaction as string | undefined;
+
+                if (!isNaN(out)) {
+                    if (tx) setTransaction(tx);
+                    onQuote(out, tx);
                 }
             } catch (err) {
                 console.error("Invalid quote message", err);
@@ -69,9 +72,7 @@ export function useQuoteWebSocket(params: QuoteParams | null): void {
         };
 
         return () => {
-            if (wsRef.current) {
-                wsRef.current.close();
-            }
+            ws.close();
         };
     }, [
         params?.signer,
