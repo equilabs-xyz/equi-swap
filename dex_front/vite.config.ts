@@ -22,7 +22,7 @@ export default defineConfig({
     // if you use HMR (hot module reload), ensure WebSocket goes through SSL
     hmr: {
       host: "swap.equilabs.io",
-      protocol: "ws",
+      protocol: "wss",
     },
 
     // keep your existing API prox
