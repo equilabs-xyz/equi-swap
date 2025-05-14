@@ -16,7 +16,7 @@ import {
   SolflareWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 
-const endpoint = "https://api.mainnet-beta.solana.com";
+const endpoint = "https://polished-solemn-season.solana-mainnet.quiknode.pro/64f4cf3bc800a969507e1b4219d2c3b5646fb30e";
 
 const wallets = [new PhantomWalletAdapter(), new SolflareWalletAdapter()];
 import { ThemeProvider } from "@/components/theme-provider";
