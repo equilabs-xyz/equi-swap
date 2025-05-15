@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from "react";
-import { PublicKey, Connection } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchSignatures, fetchTransactionsBySignatures } from "@/features/wallet/services/solana.ts";
