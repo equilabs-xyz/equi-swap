@@ -21,7 +21,7 @@ import {WrapUnwrapSOLModal} from "@/features/swap/components/WrapUnwrapSOLModal.
 import {SolWsolBalance} from "@/features/swap/components/SolWsolBalance.tsx";
 import {useTokenBalancesStore} from "@/stores/token-balances.ts";
 
-const SOL_MINT = "So11111111111111111111111111111111111111112";
+const SOL_MINT = "11111111111111111111111111111111";
 const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
 export default function SwapLayout() {
