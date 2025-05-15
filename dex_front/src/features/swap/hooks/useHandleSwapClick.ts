@@ -1,145 +1,65 @@
 import {
     VersionedTransaction,
+    VersionedMessage,
     Connection,
-    Keypair, PublicKey, Transaction, SystemProgram,
 } from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useSwapStore } from "@/stores/swap-ui";
+import { toast } from "sonner";
 
-const JITO_BUNDLE_URL = "https://mainnet.block-engine.jito.wtf/api/v1/bundles";
+// ✅ Remove the hook call here (no useTokenBalances)
 
-async function sendJitoBundleJsonRpc(base64Txs: string[]) {
-    const body = {
-        jsonrpc: "2.0",
-        id: 1,
-        method: "sendBundle",
-        params: [
-            base64Txs,
-            {
-                encoding: "base64",
-            },
-        ],
-    };
-
-    const response = await fetch(JITO_BUNDLE_URL, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || result.error) {
-        const message = result?.error?.message || JSON.stringify(result);
-        throw new Error("Jito bundle submission failed: " + message);
-    }
-
-    console.log("🟢 Jito Bundle Result:", result.result);
-}
-
-export const useHandleSwapClick = (connection: Connection) => {
-    const { publicKey, signTransaction } = useWallet();
+export const useHandleSwapClick = (
+    connection: Connection,
+    refetchBalances: () => Promise<void> // passed from parent
+) => {
+    const { publicKey, signTransaction, sendTransaction } = useWallet();
     const { transaction, clearTransaction } = useSwapStore();
 
     return async () => {
-        if (!transaction || !publicKey || !signTransaction) {
+        if (!transaction || !publicKey || !signTransaction || !sendTransaction) {
             console.warn("⚠️ Missing transaction or wallet");
+            toast.error("Wallet or transaction is missing");
             return;
         }
 
+        let toastId: string | number | undefined;
+
         try {
-            const rawTx = Buffer.from(transaction, "base64");
+            const rawMessage = Buffer.from(transaction, "base64");
 
             let tx: VersionedTransaction;
             try {
-                tx = VersionedTransaction.deserialize(rawTx);
-            } catch {
-                throw new Error("❌ Failed to deserialize transaction");
+                const message = VersionedMessage.deserialize(rawMessage);
+                tx = new VersionedTransaction(message);
+            } catch (e) {
+                console.error("❌ Failed to deserialize message", e);
+                toast.error("Failed to decode transaction");
+                return;
             }
 
-            const requiredSignatures = tx.message.header.numRequiredSignatures;
-            while (tx.signatures.length < requiredSignatures) {
-                tx.signatures.push(Buffer.alloc(64));
-            }
+            const sig = await sendTransaction(tx, connection);
+            console.log("🚀 Swap transaction sent:", sig);
 
-            const isSigned = tx.signatures.some(
-                (sig) => Buffer.compare(sig, Buffer.alloc(64)) !== 0
-            );
+            // ✅ Create and store toast ID
+            toastId = toast.loading("Awaiting confirmation...");
 
-            const finalTx = isSigned ? tx : await signTransaction(tx);
+            // Wait for confirmation
+            await connection.confirmTransaction(sig, "confirmed");
 
-            const base64Tx = Buffer.from(finalTx.serialize()).toString("base64");
+            toast.success("Swap confirmed!", {
+                id: toastId,
+                description: `<a href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener noreferrer" style="text-decoration: underline; color: #3b82f6;">View on Explorer</a>`
+            });
 
-            // Create tip transaction
-            const tipAccount = await getTipAccount();
-            const payer = Keypair.generate(); // Replace with your actual payer Keypair
-            const tipTx = await createTipTransaction(connection, payer, tipAccount);
-            const base64TipTx = tipTx.serialize().toString("base64");
+            // ✅ Refresh balances
+            await refetchBalances();
 
-            // Submit bundle to Jito
-            await sendJitoBundleJsonRpc([base64Tx, base64TipTx]);
-
-            console.log("🚀 Sent to Jito relayer");
         } catch (err) {
-            console.error("❌ Error during Jito bundle swap:", err);
+            console.error("❌ Error during swap execution:", err);
+            toast.error("Swap failed.", { id: toastId });
         } finally {
             clearTransaction();
         }
     };
 };
-
-
-
-async function createTipTransaction(
-    connection: Connection,
-    payer: Keypair,
-    tipAccount: PublicKey,
-    tipAmountLamports: number = 100000
-): Promise<Transaction> {
-    const recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-
-    const transaction = new Transaction({
-        recentBlockhash,
-        feePayer: payer.publicKey,
-    });
-
-    const transferInstruction = SystemProgram.transfer({
-        fromPubkey: payer.publicKey,
-        toPubkey: tipAccount,
-        lamports: tipAmountLamports,
-    });
-
-    transaction.add(transferInstruction);
-    transaction.sign(payer);
-
-    return transaction;
-}
-
-
-async function getTipAccount(): Promise<PublicKey> {
-    const response = await fetch("https://mainnet.block-engine.jito.wtf/api/v1/bundles", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: 1,
-            method: "getTipAccounts",
-            params: [],
-        }),
-    });
-
-    const result = await response.json();
-    const tipAccounts = result.result;
-    if (!tipAccounts || tipAccounts.length === 0) {
-        throw new Error("No Jito tip accounts available");
-    }
-
-    // Select a random tip account
-    const randomIndex = Math.floor(Math.random() * tipAccounts.length);
-    return new PublicKey(tipAccounts[randomIndex]);
-}
-

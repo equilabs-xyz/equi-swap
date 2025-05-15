@@ -8,7 +8,6 @@ import Header from "./components/Header";
 import TokenInputSection from "./components/TokenInputSection";
 import SwapButton from "./components/SwapButton";
 import PriceChart from "./components/PriceChart";
-import { useTokenBalances } from "./hooks/useTokenBalances";
 import { useSwapStore } from "@/stores/swap-ui";
 import { TopTokens as topTokens } from "@/data/top-tokens";
 import {
@@ -18,12 +17,20 @@ import {
 } from "@/features/swap/components/SwapSettings";
 import { useQuoteWebSocket } from "@/features/swap/hooks/useQuoteWebSocket";
 import {useHandleSwapClick} from "@/features/swap/hooks/useHandleSwapClick.ts";
+import {WrapUnwrapSOLModal} from "@/features/swap/components/WrapUnwrapSOLModal.tsx";
+import {SolWsolBalance} from "@/features/swap/components/SolWsolBalance.tsx";
+import {useTokenBalancesStore} from "@/stores/token-balances.ts";
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
 export default function SwapLayout() {
   const { connected, publicKey } = useWallet();
+  useEffect(() => {
+    if (publicKey) {
+      fetchBalances(publicKey);
+    }
+  }, [publicKey]);
   const {
     inputToken,
     outputToken,
@@ -42,7 +49,7 @@ export default function SwapLayout() {
       ? `${publicKey.toBase58().slice(0, 4)}...${publicKey.toBase58().slice(-4)}`
       : "";
 
-  const { balances: tokenBalances } = useTokenBalances(publicKey);
+  const { balances: tokenBalances, fetchBalances } = useTokenBalancesStore();
   const [chartRefreshTrigger, setChartRefreshTrigger] = useState(0);
   const [rotated, setRotated] = useState(false);
   const inputMint = inputToken?.address;
@@ -84,7 +91,10 @@ export default function SwapLayout() {
       }
     }
   }, [topTokens]);
-
+  const getSwapMint = (mint: string) =>
+      mint === "11111111111111111111111111111111"
+          ? "So11111111111111111111111111111111111111112"
+          : mint;
   const onQuote = useCallback((expected_out: number) => {
     const formatted = expected_out.toFixed(6);
     setIsOutputUpdating(true);
@@ -96,8 +106,8 @@ export default function SwapLayout() {
       hasEnoughBalance
           ? {
             signer: publicKey?.toBase58() ?? "",
-            x_mint: inputToken?.address ?? "",
-            y_mint: outputToken?.address ?? "",
+            x_mint: getSwapMint(inputToken?.address ?? ""),
+            y_mint: getSwapMint(outputToken?.address ?? ""),
             amount: inAmountNum,
             slippage: getMaxSlippage(),
             priority_fee: getPriorityFee(),
@@ -110,8 +120,10 @@ export default function SwapLayout() {
     swapTokens();
     setRotated((prev) => !prev);
   };
-  const swap = useHandleSwapClick(connection);
+  const swap = useHandleSwapClick(connection, () => fetchBalances(publicKey!));
 
+
+  const [modalOpen, setModalOpen] = useState(false);
 
 
   const disableSwap =
@@ -126,13 +138,15 @@ export default function SwapLayout() {
         <div className="flex justify-end p-3">
           <SwapSettingsDialog />
         </div>
+        <SolWsolBalance onManage={() => setModalOpen(true)} />
+        <WrapUnwrapSOLModal open={modalOpen} onOpenChange={setModalOpen} connection={connection} />
+
         <div className="max-w-md p-4 mb-3 rounded-2xl shadow-xl space-y-6 border bg-card border-border">
           <TokenInputSection
               label="From"
               token={inputToken}
               onSelect={setInputToken}
               fieldName="inputAmount"
-              tokenBalances={tokenBalances}
               topTokens={topTokens}
               publicKey={publicKey?.toBase58() ?? ""}
               allowMax
@@ -152,7 +166,6 @@ export default function SwapLayout() {
               token={outputToken}
               onSelect={setOutputToken}
               fieldName="outputAmount"
-              tokenBalances={tokenBalances}
               topTokens={topTokens}
               publicKey={publicKey?.toBase58() ?? ""}
           />

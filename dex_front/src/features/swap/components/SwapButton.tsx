@@ -2,8 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { useSwapStore } from "@/stores/swap-ui";
-import { useTokenBalances } from "@/features/swap/hooks/useTokenBalances";
-import { useWallet } from "@solana/wallet-adapter-react";
+import {useTokenBalancesStore} from "@/stores/token-balances.ts";
 
 export default function SwapButton({
                                      disabled,
@@ -13,9 +12,8 @@ export default function SwapButton({
   onClick: () => void | Promise<void>;
 }) {
   const { t } = useTranslation();
-  const { publicKey } = useWallet();
   const { inputToken, inputAmount } = useSwapStore();
-  const { balances } = useTokenBalances(publicKey);
+    const balances = useTokenBalancesStore((s) => s.balances);
 
   const inputMint = inputToken?.address;
   const inputBal = inputMint ? balances[inputMint] ?? 0 : 0;

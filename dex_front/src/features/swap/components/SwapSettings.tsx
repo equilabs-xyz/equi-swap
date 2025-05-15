@@ -11,22 +11,28 @@ export function SwapSettingsDialog() {
     const [open, setOpen] = useState(false);
     const [slippage, setSlippage] = useState("0.5");
     const [priorityFeeSOL, setPriorityFeeSOL] = useState("0.000001"); // show as SOL
-
+    const WRAP_SOL_KEY = "swap:wrapWSOL";
+    const [wrapWSOL, setWrapWSOL] = useState(true);
     // Load saved settings
     useEffect(() => {
         const savedSlippage = localStorage.getItem(SLIPPAGE_KEY);
         const savedPriority = localStorage.getItem(PRIORITY_KEY);
+        const savedWrap = localStorage.getItem(WRAP_SOL_KEY);
+
         if (savedSlippage) setSlippage(savedSlippage);
         if (savedPriority) {
             const solVal = (parseInt(savedPriority, 10) / 1_000_000).toString();
             setPriorityFeeSOL(solVal);
         }
+        if (savedWrap !== null) setWrapWSOL(savedWrap === "true");
     }, []);
 
     const saveSettings = () => {
         const lamports = Math.round(parseFloat(priorityFeeSOL || "0") * 1_000_000); // convert SOL -> μLamports
         localStorage.setItem(SLIPPAGE_KEY, slippage);
         localStorage.setItem(PRIORITY_KEY, lamports.toString());
+        localStorage.setItem(WRAP_SOL_KEY, wrapWSOL.toString());
+
         setOpen(false);
     };
 
@@ -45,6 +51,7 @@ export function SwapSettingsDialog() {
                 <h3 className="text-base font-semibold">Swap Settings</h3>
 
                 <div className="space-y-3 text-sm">
+
                     <div>
                         <label className="text-muted-foreground mb-1 block">Priority Fee (SOL)</label>
                         <Input
@@ -83,6 +90,8 @@ export function SwapSettingsDialog() {
                             />
                         </div>
                     </div>
+
+
                 </div>
 
                 <Button onClick={saveSettings} size="sm" className="w-full mt-1">
@@ -102,4 +111,8 @@ export function getMaxSlippage(): number {
 export function getPriorityFee(): number {
     const stored = localStorage.getItem("swap:priorityFee");
     return stored ? parseInt(stored, 10) / 1_000_000 : 0.0001;
+}
+export function getWrapWSOL(): boolean {
+    const stored = localStorage.getItem("swap:wrapWSOL");
+    return stored === "true";
 }

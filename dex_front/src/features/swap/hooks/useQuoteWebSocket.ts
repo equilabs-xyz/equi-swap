@@ -59,7 +59,7 @@ export function useQuoteWebSocket(params: QuoteParams | null): void {
             try {
                 const data = JSON.parse(event.data);
                 const out = parseFloat(data.expected_out);
-                const tx = data.transaction as string | undefined;
+                const tx = data.message as string | undefined;
 
                 if (!isNaN(out)) {
                     if (tx) setTransaction(tx);

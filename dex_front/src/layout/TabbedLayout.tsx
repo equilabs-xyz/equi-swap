@@ -123,7 +123,9 @@ export default function TabbedLayout() {
                 </div>
               </div>
             </div>
+
           </Tabs>
+
         </div>
 
         ) : (
@@ -166,7 +168,10 @@ export default function TabbedLayout() {
               </div>
             </Tabs>
           </div>
+
+
         </div>
+
       )}
     </div>
   );
