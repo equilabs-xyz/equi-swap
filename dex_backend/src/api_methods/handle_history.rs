@@ -10,7 +10,6 @@ use dotenv::dotenv;
 use serde_json::{json, Value};
 use warp::http::StatusCode;
 use warp::Reply;
-use crate::api_methods::get_random_helius_rpc::get_random_helius_rpc;
 use futures::stream::{iter, FuturesUnordered, StreamExt};
 use mpl_token_metadata::ID as TOKEN_METADATA_PROGRAM_ID;
 use mpl_token_metadata::accounts::Metadata;
@@ -117,265 +116,6 @@ struct TokenMetadata {
 const MAX_RETRIES: usize = 3;
 const RETRY_DELAYS: [u64; 3] = [1, 1, 1];
 const SOL_MINT: &str = "So11111111111111111111111111111111111111112";
-
-async fn get_parsed_transaction_solflare(
-    signatures: Vec<String>,
-    wallet: &Pubkey,
-) -> Result<Vec<NormalizedTx>> {
-    let client = REQWEST_CLIENT.get().unwrap();
-    let start = Instant::now();
-
-    let body = json!({
-        "language": "en",
-        "layout": "web",
-        "address": wallet.to_string(),
-        "signatures": signatures,
-    });
-
-    let response = client
-        .post("https://activity-api.solflare.com/v1/transactions?network=mainnet")
-        .header("accept", "*/*")
-        .header("accept-encoding", "gzip, deflate, br, zstd")
-        .header("accept-language", "ru,en-US;q=0.9,en;q=0.8,de;q=0.7")
-        .header("authorization", "Bearer b75ef849-9db2-4b6b-9d2d-82e0c392593e")
-        .header("content-type", "application/json")
-        .header("dnt", "1")
-        .header("origin", "chrome-extension://bhhhlbepdkbapadjdnnojkbgioiodbic")
-        .header("priority", "u=1, i")
-        .header("sec-fetch-dest", "empty")
-        .header("sec-fetch-mode", "cors")
-        .header("sec-fetch-site", "none")
-        .header("sec-fetch-storage-access", "active")
-        .header("user-agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1")
-        .timeout(Duration::from_secs(3))
-        .json(&body)
-        .send()
-        .await?;
-
-    println!("[timing] Solflare API call took {:?}", start.elapsed());
-
-    let raw_text = response.text().await?;
-    let chunks = raw_text.split("<|EOF|>").filter(|c| !c.trim().is_empty());
-
-    let mut parsed_txs = Vec::new();
-
-    let semaphore = Arc::new(Semaphore::new(10));
-    let mut futures = FuturesUnordered::new();
-
-    for chunk in chunks {
-        let json: Value = match serde_json::from_str(chunk.trim()) {
-            Ok(v) => v,
-            Err(e) => {
-                eprintln!("Error decoding JSON chunk: {e}");
-                continue;
-            }
-        };
-
-        if let Some(arr) = json["data"].as_array() {
-            for tx in arr {
-                if let Some(tx) = tx.as_object() {
-                    let tx = tx.clone();
-                    let wallet = *wallet;
-                    let permit = semaphore.clone().acquire_owned().await.unwrap();
-
-                    futures.push(tokio::spawn(async move {
-                        let _permit = permit;
-                        parse_solflare_tx(tx, &wallet)
-                    }));
-                }
-            }
-        }
-    }
-
-    while let Some(result) = futures.next().await {
-        match result {
-            Ok(Some(tx)) => parsed_txs.push(tx),
-            Ok(None) => {} // нормально
-            Err(e) => eprintln!("tokio join error: {e}"),
-        }
-    }
-
-
-    Ok(parsed_txs)
-}
-pub async fn handle_parse_transactions(
-    req: TransactionParseRequest,
-) -> Result<impl Reply, warp::Rejection> {
-    let pubkey = match req.address.parse::<Pubkey>() {
-        Ok(pk) => pk,
-        Err(_) => {
-            return Ok(warp::reply::with_status(
-                warp::reply::json(&"Invalid public key"),
-                StatusCode::BAD_REQUEST,
-            ));
-        }
-    };
-
-    match get_parsed_transaction_solflare(req.signatures, &pubkey).await {
-        Ok(results) => Ok(warp::reply::with_status(
-            warp::reply::json(&PhantomHistoryResponse { results }),
-            StatusCode::OK,
-        )),
-        Err(err) => {
-            eprintln!("Failed to fetch Solflare transactions: {}", err);
-            Ok(warp::reply::with_status(
-                warp::reply::json(&"Failed to fetch transactions"),
-                StatusCode::INTERNAL_SERVER_ERROR,
-            ))
-        }
-    }
-}
-
-
-
-pub fn parse_solflare_tx(tx: serde_json::Map<String, Value>, wallet: &Pubkey) -> Option<NormalizedTx> {
-    let hash = tx.get("hash")?.as_str().unwrap_or_default();
-    let wallet_str = wallet.to_string();
-
-    // Parse timestamp
-    let props = tx
-        .get("components")?
-        .get("lineItem")?
-        .get("props")?
-        .as_array()?;
-
-    let timestamp = props
-        .iter()
-        .find(|p| p["name"] == "blockTime")
-        .and_then(|p| p["value"].as_u64())
-        .unwrap_or_default();
-
-    // Determine transaction type
-    let tx_type = if let Some(tx_type) = tx.get("type").and_then(|t| t.as_str()) {
-        if tx_type.contains("SENT") {
-            "SENT"
-        } else if tx_type.contains("RECEIVED") {
-            "RECEIVED"
-        } else if tx_type.contains("INTERACTED_WITH_APP") {
-            "APP INTERACTION"
-        } else {
-            match tx_type {
-                "CLOSED_ATA" => "CLOSED ACCOUNT",
-                _ => "UNKNOWN",
-            }
-        }
-    } else {
-        "UNKNOWN"
-    };
-    // Parse addresses from transaction details
-    let (mut sender, mut recipient) = ("unknown".into(), "unknown".into());
-    if let Some(expanded) = tx.get("expandedData") {
-        if let Some(details) = expanded.get("details").and_then(|d| d.as_array()) {
-            sender = details.get(0)
-                .and_then(|d| d.get("props"))
-                .and_then(|p| p.as_array())
-                .and_then(|p| p.iter().find(|i| i["name"] == "content"))
-                .and_then(|c| c["value"].as_str())
-                .unwrap_or("unknown")
-                .to_string();
-
-            recipient = details.get(2)
-                .and_then(|d| d.get("props"))
-                .and_then(|p| p.as_array())
-                .and_then(|p| p.iter().find(|i| i["name"] == "content"))
-                .and_then(|c| c["value"].as_str())
-                .unwrap_or("unknown")
-                .to_string();
-        }
-    }
-
-    // Parse balance changes
-    let balances = props
-        .iter()
-        .find(|p| p["name"] == "balances")
-        .and_then(|p| p["value"]["props"].as_array());
-
-    let status = balances.as_ref()
-        .and_then(|b| b.iter().find(|p| p["name"] == "failedText"))
-        .map(|p| p["value"].as_str() == Some("Failed"))
-        .unwrap_or(false);
-
-    let mut changes = Vec::new();
-
-    // Helper to parse token info
-    let parse_token = |t: &Value| -> Option<(String, String, String, u8)> {
-        Some((
-            t["amount"].as_str().unwrap_or("0").to_string(),
-            t["symbol"].as_str().unwrap_or("UNKNOWN").to_string(),
-            t["image"].as_str().unwrap_or("").to_string(),
-            t["decimals"].as_u64().unwrap_or(0) as u8,
-        ))
-    };
-
-    // Process positive balances (received)
-    if let Some(positives) = balances.as_ref()
-        .and_then(|b| b.iter().find(|p| p["name"] == "positives"))
-        .and_then(|p| p["value"].as_array())
-    {
-        for t in positives {
-            if let Some((amount, symbol, image, decimals)) = parse_token(t) {
-                changes.push(BalanceChange {
-                    amount,
-                    from: sender.clone(),
-                    to: wallet_str.clone(),
-                    token: TokenInfo {
-                        id: format!("solana:101/address:{}", symbol),
-                        displayName: symbol.clone(),
-                        symbol,
-                        decimals,
-                        logoURI: image,
-                    },
-                });
-            }
-        }
-    }
-
-    // Process negative balances (sent)
-    if let Some(negatives) = balances.as_ref()
-        .and_then(|b| b.iter().find(|p| p["name"] == "negatives"))
-        .and_then(|p| p["value"].as_array())
-    {
-        for t in negatives {
-            if let Some((amount, symbol, image, decimals)) = parse_token(t) {
-                changes.push(BalanceChange {
-                    amount,
-                    from: wallet_str.clone(),
-                    to: recipient.clone(),
-                    token: TokenInfo {
-                        id: format!("solana:101/address:{}", symbol),
-                        displayName: symbol.clone(),
-                        symbol,
-                        decimals,
-                        logoURI: image,
-                    },
-                });
-            }
-        }
-    }
-
-    // Parse network fee
-    let fee = tx.get("fee")
-        .and_then(|v| match v {
-            Value::Number(n) => Some(n.to_string()),
-            Value::String(s) => Some(s.clone()),
-            _ => None,
-        })
-        .unwrap_or_else(|| "0".into());
-
-    Some(NormalizedTx {
-        id: format!("solana:101/tx:{}", hash),
-        timestamp,
-        interactionData: InteractionData {
-            transactionType: tx_type.to_string(),
-            balanceChanges: changes,
-        },
-        chainMeta: ChainMeta {
-            transactionId: hash.into(),
-            status: if status { "failed" } else { "success" }.into(),
-            networkFee: fee,
-        },
-    })
-}
 
 
 
@@ -643,63 +383,63 @@ async fn get_parsed_transaction(signature: &str) -> Result<Value> {
         }
     }
 }
-async fn fetch_transactions(
-    pubkey: &Pubkey,
-    before: Option<String>,
-    until: Option<String>,
-    limit: usize
-) -> Result<Vec<Value>> {
-    println!("Fetching transactions for pubkey: {}", pubkey);
-    let mut attempts = 0;
-    let mut rpc_url = get_random_helius_rpc().await.unwrap();
-    let fetch_transactions  = Instant::now();
-    println!("{:?}", before);
-    println!("{:?}", limit);
-    println!("{:?}", until);
-    loop {
-        let request_body = json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "getSignaturesForAddress",
-            "params": [
-                pubkey.to_string(),
-                {
-                    "limit": limit,
-                    "before": before,
-                    "until": until,
-                    "commitment": "confirmed"
-                }
-            ]
-        });
-
-        match REQWEST_CLIENT.get().unwrap()
-            .post(&rpc_url)
-            .json(&request_body)
-            .send()
-            .await
-        {
-            Ok(response) => {
-                let json: Value = response.json().await?;
-                println!(
-                    "[timing] Total fetch_transactions duration: {:?}",
-                    fetch_transactions.elapsed()
-                );
-                if let Some(result) = json["result"].as_array() {
-                    return Ok(result.clone());
-                }
-            }
-            Err(e) => {
-                if attempts >= MAX_RETRIES {
-                    return Err(e.into());
-                }
-                tokio::time::sleep(Duration::from_secs(RETRY_DELAYS[attempts] / 5)).await;
-                attempts += 1;
-                rpc_url = get_random_helius_rpc().await.unwrap();
-                println!("{:?}", rpc_url);
-            }
-        }
-    }
-}
+// async fn fetch_transactions(
+//     pubkey: &Pubkey,
+//     before: Option<String>,
+//     until: Option<String>,
+//     limit: usize
+// ) -> Result<Vec<Value>> {
+//     println!("Fetching transactions for pubkey: {}", pubkey);
+//     let mut attempts = 0;
+//     let mut rpc_url = get_random_helius_rpc().await.unwrap();
+//     let fetch_transactions  = Instant::now();
+//     println!("{:?}", before);
+//     println!("{:?}", limit);
+//     println!("{:?}", until);
+//     loop {
+//         let request_body = json!({
+//             "jsonrpc": "2.0",
+//             "id": 1,
+//             "method": "getSignaturesForAddress",
+//             "params": [
+//                 pubkey.to_string(),
+//                 {
+//                     "limit": limit,
+//                     "before": before,
+//                     "until": until,
+//                     "commitment": "confirmed"
+//                 }
+//             ]
+//         });
+//
+//         match REQWEST_CLIENT.get().unwrap()
+//             .post(&rpc_url)
+//             .json(&request_body)
+//             .send()
+//             .await
+//         {
+//             Ok(response) => {
+//                 let json: Value = response.json().await?;
+//                 println!(
+//                     "[timing] Total fetch_transactions duration: {:?}",
+//                     fetch_transactions.elapsed()
+//                 );
+//                 if let Some(result) = json["result"].as_array() {
+//                     return Ok(result.clone());
+//                 }
+//             }
+//             Err(e) => {
+//                 if attempts >= MAX_RETRIES {
+//                     return Err(e.into());
+//                 }
+//                 tokio::time::sleep(Duration::from_secs(RETRY_DELAYS[attempts] / 5)).await;
+//                 attempts += 1;
+//                 rpc_url = get_random_helius_rpc().await.unwrap();
+//                 println!("{:?}", rpc_url);
+//             }
+//         }
+//     }
+// }
 
 pub async fn fetch_solflare_signatures(pubkey: &Pubkey, limit: usize) -> Result<Vec<SolflareSignature>> {
     let client = Client::new();
@@ -768,6 +508,265 @@ pub async fn fetch_solflare_signatures(pubkey: &Pubkey, limit: usize) -> Result<
 
     Ok(signatures)
 }
+async fn get_parsed_transaction_solflare(
+    signatures: Vec<String>,
+    wallet: &Pubkey,
+) -> Result<Vec<NormalizedTx>> {
+    let client = REQWEST_CLIENT.get().unwrap();
+    let start = Instant::now();
+
+    let body = json!({
+        "language": "en",
+        "layout": "web",
+        "address": wallet.to_string(),
+        "signatures": signatures,
+    });
+
+    let response = client
+        .post("https://activity-api.solflare.com/v1/transactions?network=mainnet")
+        .header("accept", "*/*")
+        .header("accept-encoding", "gzip, deflate, br, zstd")
+        .header("accept-language", "ru,en-US;q=0.9,en;q=0.8,de;q=0.7")
+        .header("authorization", "Bearer b75ef849-9db2-4b6b-9d2d-82e0c392593e")
+        .header("content-type", "application/json")
+        .header("dnt", "1")
+        .header("origin", "chrome-extension://bhhhlbepdkbapadjdnnojkbgioiodbic")
+        .header("priority", "u=1, i")
+        .header("sec-fetch-dest", "empty")
+        .header("sec-fetch-mode", "cors")
+        .header("sec-fetch-site", "none")
+        .header("sec-fetch-storage-access", "active")
+        .header("user-agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1")
+        .timeout(Duration::from_secs(3))
+        .json(&body)
+        .send()
+        .await?;
+
+    println!("[timing] Solflare API call took {:?}", start.elapsed());
+
+    let raw_text = response.text().await?;
+    let chunks = raw_text.split("<|EOF|>").filter(|c| !c.trim().is_empty());
+
+    let mut parsed_txs = Vec::new();
+
+    let semaphore = Arc::new(Semaphore::new(10));
+    let mut futures = FuturesUnordered::new();
+
+    for chunk in chunks {
+        let json: Value = match serde_json::from_str(chunk.trim()) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("Error decoding JSON chunk: {e}");
+                continue;
+            }
+        };
+
+        if let Some(arr) = json["data"].as_array() {
+            for tx in arr {
+                if let Some(tx) = tx.as_object() {
+                    let tx = tx.clone();
+                    let wallet = *wallet;
+                    let permit = semaphore.clone().acquire_owned().await.unwrap();
+
+                    futures.push(tokio::spawn(async move {
+                        let _permit = permit;
+                        parse_solflare_tx(tx, &wallet)
+                    }));
+                }
+            }
+        }
+    }
+
+    while let Some(result) = futures.next().await {
+        match result {
+            Ok(Some(tx)) => parsed_txs.push(tx),
+            Ok(None) => {} // нормально
+            Err(e) => eprintln!("tokio join error: {e}"),
+        }
+    }
+
+
+    Ok(parsed_txs)
+}
+pub async fn handle_parse_transactions(
+    req: TransactionParseRequest,
+) -> Result<impl Reply, warp::Rejection> {
+    let pubkey = match req.address.parse::<Pubkey>() {
+        Ok(pk) => pk,
+        Err(_) => {
+            return Ok(warp::reply::with_status(
+                warp::reply::json(&"Invalid public key"),
+                StatusCode::BAD_REQUEST,
+            ));
+        }
+    };
+
+    match get_parsed_transaction_solflare(req.signatures, &pubkey).await {
+        Ok(results) => Ok(warp::reply::with_status(
+            warp::reply::json(&PhantomHistoryResponse { results }),
+            StatusCode::OK,
+        )),
+        Err(err) => {
+            eprintln!("Failed to fetch Solflare transactions: {}", err);
+            Ok(warp::reply::with_status(
+                warp::reply::json(&"Failed to fetch transactions"),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ))
+        }
+    }
+}
+
+
+
+pub fn parse_solflare_tx(tx: serde_json::Map<String, Value>, wallet: &Pubkey) -> Option<NormalizedTx> {
+    let hash = tx.get("hash")?.as_str().unwrap_or_default();
+    let wallet_str = wallet.to_string();
+
+    // Parse timestamp
+    let props = tx
+        .get("components")?
+        .get("lineItem")?
+        .get("props")?
+        .as_array()?;
+
+    let timestamp = props
+        .iter()
+        .find(|p| p["name"] == "blockTime")
+        .and_then(|p| p["value"].as_u64())
+        .unwrap_or_default();
+
+    // Determine transaction type
+    let tx_type = if let Some(tx_type) = tx.get("type").and_then(|t| t.as_str()) {
+        if tx_type.contains("SENT") {
+            "SENT"
+        } else if tx_type.contains("RECEIVED") {
+            "RECEIVED"
+        } else if tx_type.contains("INTERACTED_WITH_APP") {
+            "APP INTERACTION"
+        } else {
+            match tx_type {
+                "CLOSED_ATA" => "CLOSED ACCOUNT",
+                _ => "UNKNOWN",
+            }
+        }
+    } else {
+        "UNKNOWN"
+    };
+    // Parse addresses from transaction details
+    let (mut sender, mut recipient) = ("unknown".into(), "unknown".into());
+    if let Some(expanded) = tx.get("expandedData") {
+        if let Some(details) = expanded.get("details").and_then(|d| d.as_array()) {
+            sender = details.get(0)
+                .and_then(|d| d.get("props"))
+                .and_then(|p| p.as_array())
+                .and_then(|p| p.iter().find(|i| i["name"] == "content"))
+                .and_then(|c| c["value"].as_str())
+                .unwrap_or("unknown")
+                .to_string();
+
+            recipient = details.get(2)
+                .and_then(|d| d.get("props"))
+                .and_then(|p| p.as_array())
+                .and_then(|p| p.iter().find(|i| i["name"] == "content"))
+                .and_then(|c| c["value"].as_str())
+                .unwrap_or("unknown")
+                .to_string();
+        }
+    }
+
+    // Parse balance changes
+    let balances = props
+        .iter()
+        .find(|p| p["name"] == "balances")
+        .and_then(|p| p["value"]["props"].as_array());
+
+    let status = balances.as_ref()
+        .and_then(|b| b.iter().find(|p| p["name"] == "failedText"))
+        .map(|p| p["value"].as_str() == Some("Failed"))
+        .unwrap_or(false);
+
+    let mut changes = Vec::new();
+
+    // Helper to parse token info
+    let parse_token = |t: &Value| -> Option<(String, String, String, u8)> {
+        Some((
+            t["amount"].as_str().unwrap_or("0").to_string(),
+            t["symbol"].as_str().unwrap_or("UNKNOWN").to_string(),
+            t["image"].as_str().unwrap_or("").to_string(),
+            t["decimals"].as_u64().unwrap_or(0) as u8,
+        ))
+    };
+
+    // Process positive balances (received)
+    if let Some(positives) = balances.as_ref()
+        .and_then(|b| b.iter().find(|p| p["name"] == "positives"))
+        .and_then(|p| p["value"].as_array())
+    {
+        for t in positives {
+            if let Some((amount, symbol, image, decimals)) = parse_token(t) {
+                changes.push(BalanceChange {
+                    amount,
+                    from: sender.clone(),
+                    to: wallet_str.clone(),
+                    token: TokenInfo {
+                        id: format!("solana:101/address:{}", symbol),
+                        displayName: symbol.clone(),
+                        symbol,
+                        decimals,
+                        logoURI: image,
+                    },
+                });
+            }
+        }
+    }
+
+    // Process negative balances (sent)
+    if let Some(negatives) = balances.as_ref()
+        .and_then(|b| b.iter().find(|p| p["name"] == "negatives"))
+        .and_then(|p| p["value"].as_array())
+    {
+        for t in negatives {
+            if let Some((amount, symbol, image, decimals)) = parse_token(t) {
+                changes.push(BalanceChange {
+                    amount,
+                    from: wallet_str.clone(),
+                    to: recipient.clone(),
+                    token: TokenInfo {
+                        id: format!("solana:101/address:{}", symbol),
+                        displayName: symbol.clone(),
+                        symbol,
+                        decimals,
+                        logoURI: image,
+                    },
+                });
+            }
+        }
+    }
+
+    // Parse network fee
+    let fee = tx.get("fee")
+        .and_then(|v| match v {
+            Value::Number(n) => Some(n.to_string()),
+            Value::String(s) => Some(s.clone()),
+            _ => None,
+        })
+        .unwrap_or_else(|| "0".into());
+
+    Some(NormalizedTx {
+        id: format!("solana:101/tx:{}", hash),
+        timestamp,
+        interactionData: InteractionData {
+            transactionType: tx_type.to_string(),
+            balanceChanges: changes,
+        },
+        chainMeta: ChainMeta {
+            transactionId: hash.into(),
+            status: if status { "failed" } else { "success" }.into(),
+            networkFee: fee,
+        },
+    })
+}
+
 
 async fn fetch_metadata_concurrently(mints: HashSet<String>) -> HashMap<String, TokenMetadata> {
     println!("Fetching metadata for mints: {:?}", mints);
