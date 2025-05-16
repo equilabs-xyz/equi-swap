@@ -22,7 +22,7 @@ Designed for speed, transparency, and performance, EquiSwap combines a modern Vi
 ### Frontend (React + Vite + Tailwind)
 
 ```bash
-cd frontend
+cd dex_front
 yarn install
 yarn dev
 ```
@@ -34,7 +34,7 @@ App launches at: http://localhost:5173
 ### Backend (Rust + Warp + Solana SDK)
 
 ```bash
-cd backend
+cd dex_backend
 cargo build
 cargo run
 ```
