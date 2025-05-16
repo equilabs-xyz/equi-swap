@@ -30,10 +30,6 @@ refetchBalances: () => Promise<void>) => {
             const signedTxBase64 = Buffer.from(signedTx.serialize()).toString("base64");
 
 
-            console.log("Signed transaction:", signedTxBase64);
-
-            console.log("Arb transaction:", arb_transaction);
-
             // const serializedTxBuffer = Buffer.from(arb_transaction, 'base64');
 
             // const txid = await connection.sendRawTransaction(serializedTxBuffer, {
