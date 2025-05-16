@@ -25,6 +25,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import TabbedLayout from "@/layout/TabbedLayout";
 import { Toaster } from "sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import React from "react";
 window.Buffer = Buffer;
 
 const queryClient = new QueryClient({
@@ -40,7 +41,7 @@ const queryClient = new QueryClient({
 });
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  // <React.StrictMode>
+  <React.StrictMode>
   <QueryClientProvider client={queryClient}>
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <ConnectionProvider endpoint={endpoint}>
@@ -52,6 +53,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         </WalletProvider>
       </ConnectionProvider>
     </ThemeProvider>
-  </QueryClientProvider>,
-  // </React.StrictMode>
+  </QueryClientProvider>
+  </React.StrictMode>
 );
