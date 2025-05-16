@@ -118,6 +118,7 @@ export default function SwapLayout() {
   const handleSwapClick = () => {
     swapTokens();
     setRotated((prev) => !prev);
+    setChartRefreshTrigger((prev) => prev + 1); // ✅ trigger chart refetch
   };
   const swap = useHandleSwapClick(() => fetchBalances(publicKey!));
 
