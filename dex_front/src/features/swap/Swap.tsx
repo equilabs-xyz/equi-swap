@@ -131,15 +131,15 @@ export default function SwapLayout() {
   const yesterdaySec = nowSec - 24 * 60 * 60;
 
   return (
-      <div className="flex flex-col max-w-md mx-auto">
+      <div className="flex flex-col max-w-md mx-auto pb-[100px]">
         <Header connected={connected} shortKey={shortKey} />
-        <div className="flex justify-end p-3">
+        <div className="flex justify-end p-2">
           <SwapSettingsDialog />
         </div>
         <SolWsolBalance onManage={() => setModalOpen(true)} />
         <WrapUnwrapSOLModal open={modalOpen} onOpenChange={setModalOpen} connection={connection} />
 
-        <div className="max-w-md p-4 mb-3 rounded-2xl shadow-xl space-y-6 border bg-card border-border">
+        <div className="max-w-md p-4 mb-2 rounded-2xl shadow-xl space-y-6 border bg-card border-border">
           <TokenInputSection
               label="From"
               token={inputToken}
@@ -172,7 +172,7 @@ export default function SwapLayout() {
         </div>
 
         {inputToken && outputToken && (
-            <div className="p-4 bg-card border border-border rounded-2xl">
+            <div className="p-4 bg-card border border-border rounded-2xl ">
               <PriceChart
                   key={chartRefreshTrigger}
                   baseAddress={inputToken.address}

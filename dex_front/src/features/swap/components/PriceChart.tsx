@@ -136,7 +136,7 @@ export default function PriceChart(props: PriceChartProps) {
     }, [refreshTrigger]);
 
     return (
-        <div className="space-y-1">
+        <div className="space-y-1 ">
             <div className="flex items-center justify-between gap-2 mb-1">
                 <div className="flex items-center gap-1">
                     {baseLogoURI && (
