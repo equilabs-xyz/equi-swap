@@ -4,6 +4,7 @@ import "./index.css";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
 import "@/lib/i18n";
+import { Buffer } from "buffer";
 
 import {
   ConnectionProvider,
@@ -24,6 +25,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import TabbedLayout from "@/layout/TabbedLayout";
 import { Toaster } from "sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+window.Buffer = Buffer;
 
 const queryClient = new QueryClient({
   defaultOptions: {
