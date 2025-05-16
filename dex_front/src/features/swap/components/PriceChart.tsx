@@ -108,7 +108,9 @@ export default function PriceChart(props: PriceChartProps) {
                 ? "So11111111111111111111111111111111111111112"
                 : baseAddress
         );
-        url.searchParams.set("quote_address", quoteAddress);
+        url.searchParams.set("quote_address", quoteAddress === "11111111111111111111111111111111"
+            ? "So11111111111111111111111111111111111111112"
+            : quoteAddress);
         url.searchParams.set("type", interval);
         url.searchParams.set("time_from", String(timeFrom));
         url.searchParams.set("time_to", String(timeTo));
