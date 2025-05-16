@@ -20,6 +20,7 @@ import {useHandleSwapClick} from "@/features/swap/hooks/useHandleSwapClick.ts";
 import {WrapUnwrapSOLModal} from "@/features/swap/components/WrapUnwrapSOLModal.tsx";
 import {SolWsolBalance} from "@/features/swap/components/SolWsolBalance.tsx";
 import {useTokenBalancesStore} from "@/stores/token-balances.ts";
+import {ScrollArea} from "@/components/ui/scroll-area.tsx";
 
 const SOL_MINT = "11111111111111111111111111111111";
 const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
@@ -131,6 +132,7 @@ export default function SwapLayout() {
   const yesterdaySec = nowSec - 24 * 60 * 60;
 
   return (
+      <ScrollArea className="min-h-[100vh] h-[100vh] max-h-[95vh] pt-4">
       <div className="flex flex-col max-w-md mx-auto pb-[100px]">
         <Header connected={connected} shortKey={shortKey} />
         <div className="flex justify-end p-2">
@@ -172,7 +174,7 @@ export default function SwapLayout() {
         </div>
 
         {inputToken && outputToken && (
-            <div className="p-4 bg-card border border-border rounded-2xl ">
+            <div className="p-3 bg-card border border-border rounded-2xl ">
               <PriceChart
                   key={chartRefreshTrigger}
                   baseAddress={inputToken.address}
@@ -190,5 +192,6 @@ export default function SwapLayout() {
             </div>
         )}
       </div>
+      </ScrollArea>
   );
 }
