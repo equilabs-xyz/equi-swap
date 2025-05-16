@@ -8,7 +8,7 @@ interface QuoteParams {
     amount: number;
     slippage: number;
     priority_fee: number;
-    onQuote: (expected_out: number, transaction?: string) => void;
+    onQuote: (expected_out: number, transaction?: []) => void;
 }
 
 const WS_QUOTE_CONNECTION = import.meta.env.VITE_WS_QUOTE_CONNECTION;
@@ -59,7 +59,7 @@ export function useQuoteWebSocket(params: QuoteParams | null): void {
             try {
                 const data = JSON.parse(event.data);
                 const out = parseFloat(data.expected_out);
-                const tx = data.message as string | undefined;
+                const tx = data.message as [] | undefined;
 
                 if (!isNaN(out)) {
                     if (tx) setTransaction(tx);

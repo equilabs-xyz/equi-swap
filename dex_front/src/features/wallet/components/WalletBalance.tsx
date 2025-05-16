@@ -5,7 +5,7 @@ import { useWalletUIStore } from "@/stores/wallet-ui.ts";
 import { useTranslation } from "react-i18next";
 import CloseEmptyAccountsButton from "@/features/wallet/components/CloseEmptyAccountsButton";
 import {TokenAccount} from "@/types";
-import {PublicKey} from "@solana/web3.js";
+import {PublicKey, Transaction} from "@solana/web3.js";
 
 export default function WalletBalanceHeader({
                                               solBalance,
@@ -14,6 +14,7 @@ export default function WalletBalanceHeader({
                                               publicKey,
                                               tokenAccounts,
                                               sendTransaction,
+                                                signAllTransactions
                                             }: {
   solBalance: number;
   solValue: any;
@@ -21,6 +22,8 @@ export default function WalletBalanceHeader({
   publicKey: PublicKey;
   tokenAccounts: TokenAccount[];
   sendTransaction: (tx: any, connection: any) => Promise<string>;
+    signAllTransactions: (txs: Transaction[]) => Promise<Transaction[]>;
+
 }) {
   const { showBalance, setShowBalance, showUsd, setShowUsd, mode } = useWalletUIStore();
   const { t } = useTranslation();
@@ -56,11 +59,13 @@ export default function WalletBalanceHeader({
                     </button>
                   </PopoverTrigger>
                   <PopoverContent className="w-fit p-2 rounded-md border bg-popover">
-                    <CloseEmptyAccountsButton
-                        publicKey={publicKey}
-                        tokenAccounts={tokenAccounts}
-                        sendTransaction={sendTransaction}
-                    />
+                      <CloseEmptyAccountsButton
+                          publicKey={publicKey!}
+                          tokenAccounts={tokenAccounts}
+                          sendTransaction={sendTransaction}
+                          signAllTransactions={signAllTransactions} // ✅ pass here
+                      />
+
                   </PopoverContent>
                 </Popover>
             )}

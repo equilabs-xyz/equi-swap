@@ -1,9 +1,9 @@
-// services/closeAllEmptyAccounts.ts
 import {
     Connection,
     PublicKey,
     Transaction,
     TransactionInstruction,
+    sendAndConfirmRawTransaction,
 } from "@solana/web3.js";
 import {
     createCloseAccountInstruction,
@@ -15,49 +15,61 @@ import { TokenAccount } from "@/types";
 export async function closeAllEmptyAccounts({
                                                 publicKey,
                                                 tokenAccounts,
-                                                sendTransaction,
+                                                signAllTransactions,
                                             }: {
     publicKey: PublicKey;
     tokenAccounts: TokenAccount[];
-    sendTransaction: (tx: Transaction, connection: Connection) => Promise<string>;
+    signAllTransactions: (txs: Transaction[]) => Promise<Transaction[]>;
 }) {
     const connection = new Connection(import.meta.env.VITE_SOLANA_RPC);
-    const toastId = toast.loading("Closing empty accounts...");
+    const toastId = toast.loading("Preparing to close empty accounts...");
 
     try {
-        const emptyAccounts = tokenAccounts.filter(
-            (acc) => acc.balance === 0
-        );
+        const emptyAccounts = tokenAccounts.filter((acc) => acc.balance === 0);
 
         if (emptyAccounts.length === 0) {
-            toast.success("No empty accounts to close", {id: toastId});
+            toast.success("No empty accounts to close", { id: toastId });
             return;
         }
 
-        for (const account of emptyAccounts) {
+        const transactions: Transaction[] = emptyAccounts.map((account) => {
             const tx = new Transaction();
             const accountPubkey = new PublicKey(account.pubkey);
 
             const ix: TransactionInstruction = createCloseAccountInstruction(
                 accountPubkey,
-                publicKey,
-                publicKey,
+                publicKey, // destination (lamports go here)
+                publicKey, // authority
                 [],
                 TOKEN_PROGRAM_ID
             );
 
             tx.add(ix);
+            tx.feePayer = publicKey;
+            tx.recentBlockhash = ""; // to be filled later
+            return tx;
+        });
 
-            const sig = await sendTransaction(tx, connection);
+        const { blockhash } = await connection.getLatestBlockhash();
+        transactions.forEach((tx) => {
+            tx.recentBlockhash = blockhash;
+        });
+        console.log("Transactions to be sent:", transactions);
+        const signedTxs = await signAllTransactions(transactions);
+
+        for (let i = 0; i < signedTxs.length; i++) {
+            const signedTx = signedTxs[i];
+            const rawTx = signedTx.serialize();
+            const sig = await connection.sendRawTransaction(rawTx);
             await connection.confirmTransaction(sig, "confirmed");
 
-            toast.success(`Closed account ${account.metadata?.symbol || ""}`, {
-                description: `View transaction: https://solscan.io/tx/${sig}`
+            toast.success(`Closed account ${emptyAccounts[i].metadata?.symbol || ""}`, {
+                description: `View transaction: https://solscan.io/tx/${sig}`,
             });
-
-
-            toast.dismiss(toastId);
         }
+
+        toast.success("All empty accounts closed", { id: toastId });
+
     } catch (err) {
         console.error("❌ Failed to close empty accounts", err);
         toast.error("Error closing accounts", {

@@ -83,94 +83,100 @@ export default function WalletSendDialog({
   }, [currentToken]);
 
   const filteredTokens = useMemo(() => {
-    return tokenAccounts.filter((token: any) => {
+    return tokenAccounts.filter((token) => {
       const symbol = token.metadata?.symbol?.toLowerCase() || "";
       return symbol.includes(tokenSearch.toLowerCase());
     });
   }, [tokenSearch, tokenAccounts]);
     const { sendTransaction } = useWallet();
   const { t } = useTranslation();
-  const handleSend = async (values: any) => {
-    const token = tokenAccounts.find((t: any) => t.mint === values.token);
-    if (!publicKey || !token) {
-      toast.error(t("wallet.sendErrorMissing"));
-      return;
-    }
-
-    const toastId = toast.loading(t("wallet.sending"));
-    try {
-      const connection = new Connection(CONNECTION_ENDPOINT);
-      const tx = new Transaction();
-      const recipient = new PublicKey(values.recipient);
-      const amount = Number(values.amount);
-      const decimals = token.metadata?.decimals || token.decimals;
-      const amountInUnits = BigInt(
-          Math.round(amount * Math.pow(10, decimals))
-      );
-      if (
-          token.mint ===
-          "11111111111111111111111111111111"
-      ) {
-        tx.add(
-            SystemProgram.transfer({
-              fromPubkey: publicKey,
-              toPubkey: recipient,
-              lamports: Number(amountInUnits),
-            })
-        );
-      } else {
-        const mint = new PublicKey(token.mint);
-        const source = await getAssociatedTokenAddress(mint, publicKey);
-        const dest = await getAssociatedTokenAddress(mint, recipient);
-
-        try {
-          await getAccount(connection, dest);
-        } catch {
-          tx.add(
-              createAssociatedTokenAccountInstruction(
-                  publicKey,
-                  dest,
-                  recipient,
-                  mint
-              )
-          );
+    const handleSend = async (values: any) => {
+        const token = tokenAccounts.find((t) => t.mint === values.token);
+        if (!publicKey || !token) {
+            toast.error(t("wallet.sendErrorMissing"));
+            return;
         }
 
-        tx.add(
-            createTransferInstruction(source, dest, publicKey, amountInUnits)
-        );
-      }
+        const toastId = toast.loading(t("wallet.sending"));
 
-      const signature = await sendTransaction(tx, connection);
-      await connection.confirmTransaction(signature, "confirmed");
+        try {
+            const connection = new Connection(CONNECTION_ENDPOINT, "confirmed");
+            const recipient = new PublicKey(values.recipient);
+            const amount = Number(values.amount);
 
-      toast.success(t("wallet.sendSuccess"), {
-        id: toastId,
-        description: (
-            <a
-                href={`https://solscan.io/tx/${signature}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline text-sm"
-            >
-              {t("wallet.viewOnSolscan")}
-            </a>
-        ),
-      });
+            const decimals = token.metadata?.decimals ?? token.decimals;
+            const amountInUnits = BigInt(Math.floor(amount * 10 ** decimals));
 
-      fetchData();
-      setOpen(false);
-      form.reset();
-    } catch (err) {
-      toast.error(t("wallet.sendFailed"), {
-        id: toastId,
-        description: String(err),
-      });
-      console.error("Send error:", err);
-    }
-  };
+            const { blockhash } = await connection.getLatestBlockhash("finalized");
+            const tx = new Transaction({ feePayer: publicKey, recentBlockhash: blockhash });
 
-  return (
+            if (token.mint === "11111111111111111111111111111111") {
+                // SOL transfer
+                tx.add(
+                    SystemProgram.transfer({
+                        fromPubkey: publicKey,
+                        toPubkey: recipient,
+                        lamports: Number(amountInUnits),
+                    })
+                );
+            } else {
+                // SPL transfer
+                const mint = new PublicKey(token.mint);
+                const source = await getAssociatedTokenAddress(mint, publicKey);
+                const dest = await getAssociatedTokenAddress(mint, recipient);
+
+                try {
+                    await getAccount(connection, dest);
+                } catch {
+                    tx.add(
+                        createAssociatedTokenAccountInstruction(publicKey, dest, recipient, mint)
+                    );
+                }
+
+                tx.add(
+                    createTransferInstruction(source, dest, publicKey, amountInUnits)
+                );
+            }
+
+            // Optional but helpful for debugging
+            const sim = await connection.simulateTransaction(tx);
+            if (sim.value.err) {
+                console.error("❌ Simulation failed:", sim.value.err);
+                throw new Error("Transaction simulation failed");
+            }
+
+            const signature = await sendTransaction(tx, connection);
+            await connection.confirmTransaction(signature, "confirmed");
+
+            toast.success(t("wallet.sendSuccess"), {
+                id: toastId,
+                description: (
+                    <a
+                        href={`https://solscan.io/tx/${signature}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline text-sm"
+                    >
+                        {t("wallet.viewOnSolscan")}
+                    </a>
+                ),
+            });
+
+            fetchData();
+            setOpen(false);
+            form.reset();
+
+        } catch (err) {
+            console.error("🔴 Send error:", err);
+            toast.error(t("wallet.sendFailed"), {
+                id: toastId,
+                description: "Unexpected error",
+            });
+        }
+    };
+
+
+    return (
       <Dialog open={open} onOpenChange={() => setOpen(false)}>
         <DialogContent className="w-full max-w-md rounded-xl p-5 bg-background text-foreground">
           <DialogHeader>

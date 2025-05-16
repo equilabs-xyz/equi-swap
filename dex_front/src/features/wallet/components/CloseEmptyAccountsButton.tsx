@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { PublicKey } from "@solana/web3.js";
+import {PublicKey, Transaction} from "@solana/web3.js";
 import { TokenAccount } from "@/types";
 import { closeAllEmptyAccounts } from "@/features/wallet/services/closeAllEmptyAccounts";
 
@@ -7,12 +7,13 @@ type Props = {
     publicKey: PublicKey;
     tokenAccounts: TokenAccount[];
     sendTransaction: (tx: any, connection: any) => Promise<string>;
+    signAllTransactions: (txs: Transaction[]) => Promise<Transaction[]>;
 };
-
 export default function CloseEmptyAccountsButton({
                                                      publicKey,
                                                      tokenAccounts,
                                                      sendTransaction,
+                                                     signAllTransactions
                                                  }: Props) {
     return (
         <Button
@@ -24,6 +25,7 @@ export default function CloseEmptyAccountsButton({
                     publicKey,
                     tokenAccounts,
                     sendTransaction,
+                    signAllTransactions,
                 })
             }
         >

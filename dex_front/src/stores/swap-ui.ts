@@ -15,7 +15,7 @@ type SwapState = {
   setOutputAmount: (val: string) => void;
   setIsOutputUpdating: (val: boolean) => void;
 
-  setTransaction: (tx: string) => void;
+  setTransaction: (tx: []) => void;
   clearTransaction: () => void;
 
   swapTokens: () => void;
