@@ -10,7 +10,7 @@ const PRIORITY_KEY = "swap:priorityFee"; // stored in lamports
 export function SwapSettingsDialog() {
     const [open, setOpen] = useState(false);
     const [slippage, setSlippage] = useState("0.5");
-    const [priorityFeeSOL, setPriorityFeeSOL] = useState("0.000001"); // show as SOL
+    const [priorityFeeSOL, setPriorityFeeSOL] = useState("0.00005"); // show as SOL
     const WRAP_SOL_KEY = "swap:wrapWSOL";
     const [wrapWSOL, setWrapWSOL] = useState(true);
     // Load saved settings
