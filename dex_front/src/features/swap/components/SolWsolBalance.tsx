@@ -7,9 +7,6 @@ export function SolWsolBalance({
     onManage: () => void;
 }) {
     const balances = useTokenBalancesStore((s) => s.balances);
-
-    console.log("Balances:", balances);
-
     const solBalance = balances["11111111111111111111111111111111"] ?? 0;
     const wsolBalance =
         balances["So11111111111111111111111111111111111111112"] ?? 0;

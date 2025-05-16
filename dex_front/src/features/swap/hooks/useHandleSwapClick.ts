@@ -1,65 +1,87 @@
 import {
     VersionedTransaction,
     VersionedMessage,
-    Connection,
 } from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useSwapStore } from "@/stores/swap-ui";
 import { toast } from "sonner";
 
-// ✅ Remove the hook call here (no useTokenBalances)
+const JITO_BUNDLE_URL = " https://mainnet.block-engine.jito.wtf";
 
 export const useHandleSwapClick = (
-    connection: Connection,
-    refetchBalances: () => Promise<void> // passed from parent
+    refetchBalances: () => Promise<void>
 ) => {
-    const { publicKey, signTransaction, sendTransaction } = useWallet();
-    const { transaction, clearTransaction } = useSwapStore();
+    const { publicKey, signTransaction } = useWallet();
+    const { transaction, arb_transaction, clearTransaction, clearArbTransaction } = useSwapStore();
 
     return async () => {
-        if (!transaction || !publicKey || !signTransaction || !sendTransaction) {
-            console.warn("⚠️ Missing transaction or wallet");
-            toast.error("Wallet or transaction is missing");
+        if (!transaction || !arb_transaction || !publicKey || !signTransaction) {
+            toast.error("Wallet or transaction missing");
             return;
         }
 
         let toastId: string | number | undefined;
 
         try {
-            const rawMessage = Buffer.from(transaction, "base64");
+            // Deserialize and sign user transaction (transaction)
+            const unsignedTx = new VersionedTransaction(
+                VersionedMessage.deserialize(Buffer.from(transaction, "base64"))
+            );
+            const signedTx = await signTransaction(unsignedTx);
+            const signedTxBase64 = Buffer.from(signedTx.serialize()).toString("base64");
 
-            let tx: VersionedTransaction;
-            try {
-                const message = VersionedMessage.deserialize(rawMessage);
-                tx = new VersionedTransaction(message);
-            } catch (e) {
-                console.error("❌ Failed to deserialize message", e);
-                toast.error("Failed to decode transaction");
-                return;
-            }
 
-            const sig = await sendTransaction(tx, connection);
-            console.log("🚀 Swap transaction sent:", sig);
+            console.log("Signed transaction:", signedTxBase64);
 
-            // ✅ Create and store toast ID
-            toastId = toast.loading("Awaiting confirmation...");
+            console.log("Arb transaction:", arb_transaction);
 
-            // Wait for confirmation
-            await connection.confirmTransaction(sig, "confirmed");
+            // const serializedTxBuffer = Buffer.from(arb_transaction, 'base64');
 
-            toast.success("Swap confirmed!", {
-                id: toastId,
-                description: `<a href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener noreferrer" style="text-decoration: underline; color: #3b82f6;">View on Explorer</a>`
+            // const txid = await connection.sendRawTransaction(serializedTxBuffer, {
+            //     skipPreflight: true,
+            //     preflightCommitment: 'confirmed',
+            // });
+            //
+            // console.log(txid)
+
+            toastId = toast.loading("Submitting Jito bundle...");
+
+            // Send bundle
+            const res = await fetch(JITO_BUNDLE_URL + "/api/v1/bundles", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    jsonrpc: "2.0",
+                    id: 1,
+                    method: "sendBundle",
+                    params: [
+                        [signedTxBase64, arb_transaction],
+                        {
+                            encoding: "base64",
+                        },
+                    ],
+                }),
             });
 
-            // ✅ Refresh balances
-            await refetchBalances();
+            const result = await res.json();
+            console.log("Jito bundle response:", result);
+            if (!res.ok || result.error) {
+                const message = result?.error?.message || JSON.stringify(result);
+                throw new Error("Jito bundle submission failed: " + message);
+            }
 
+            toast.success("Jito bundle sent!", {
+                id: toastId,
+                description: "Transactions submitted to Jito block engine.",
+            });
+
+            await refetchBalances();
         } catch (err) {
-            console.error("❌ Error during swap execution:", err);
-            toast.error("Swap failed.", { id: toastId });
+            console.error("❌ Jito bundle error:", err);
+            toast.error("Swap failed", { id: toastId });
         } finally {
             clearTransaction();
+            clearArbTransaction();
         }
     };
 };

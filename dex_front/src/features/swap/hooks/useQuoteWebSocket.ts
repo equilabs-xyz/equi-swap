@@ -8,7 +8,7 @@ interface QuoteParams {
     amount: number;
     slippage: number;
     priority_fee: number;
-    onQuote: (expected_out: number, transaction?: []) => void;
+    onQuote: (expected_out: number, transaction?: string, arb_transaction?: string) => void;
 }
 
 const WS_QUOTE_CONNECTION = import.meta.env.VITE_WS_QUOTE_CONNECTION;
@@ -19,7 +19,7 @@ export function useQuoteWebSocket(params: QuoteParams | null): void {
     const wsRef = useRef<WebSocket | null>(null);
     const lastHashRef = useRef<string>("");
     const setTransaction = useSwapStore((s) => s.setTransaction); // ✅ Add this
-
+    const setArbTransaction = useSwapStore((s) => s.setArbTransaction); // ✅ Add this
     useEffect(() => {
         if (!params) return;
 
@@ -48,22 +48,22 @@ export function useQuoteWebSocket(params: QuoteParams | null): void {
         }).toString();
 
         const ws = new WebSocket(`${WS_QUOTE_CONNECTION}?${query}`);
-        console.log("WebSocket URL:", `${WS_QUOTE_CONNECTION}?${query}`);
         wsRef.current = ws;
 
         ws.onopen = () => {
-            console.log("WebSocket connected:", ws.url);
         };
 
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
                 const out = parseFloat(data.expected_out);
-                const tx = data.message as [] | undefined;
+                const tx = data.message as string | undefined;
+                const arb_tx = data.arb_transaction as string | undefined;
 
                 if (!isNaN(out)) {
                     if (tx) setTransaction(tx);
-                    onQuote(out, tx);
+                    if (arb_tx) setArbTransaction(arb_tx);
+                    onQuote(out, tx, arb_tx);
                 }
             } catch (err) {
                 console.error("Invalid quote message", err);

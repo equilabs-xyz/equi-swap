@@ -15,9 +15,7 @@ import {useQueryClient} from "@tanstack/react-query";
 import {useWalletUIStore} from "@/stores/wallet-ui";
 import {TokenAccount} from "@/types";
 import {PublicKey} from "@solana/web3.js";
-import {Button} from "@/components/ui/button.tsx";
-import {closeAllEmptyAccounts} from "@/features/wallet/services/closeAllEmptyAccounts.ts";
-import CloseEmptyAccountsButton from "@/features/swap/components/CloseEmptyAccountsButton.tsx";
+
 
 function useDebouncedCallback(callback: () => void, delay: number) {
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -62,7 +60,6 @@ export default function WalletLayout() {
 
 
     const debouncedInvalidate = useDebouncedCallback(() => {
-        console.log("debouncedInvalidate");
         if (publicKey) {
             queryClient.invalidateQueries({queryKey: ["wallet", publicKey.toBase58()]});
         }
@@ -72,7 +69,6 @@ export default function WalletLayout() {
     useSPLTokenAccountListeners({
         tokenAccounts,
         onAccountChange: () => {
-            console.log("Account changed");
             debouncedInvalidate();
         },
     });

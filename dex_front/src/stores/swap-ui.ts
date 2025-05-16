@@ -8,6 +8,7 @@ type SwapState = {
   outputAmount: string;
   isOutputUpdating: boolean;
   transaction: string | null;
+  arb_transaction: string | null;
 
   setInputToken: (token: TokenInfo | null) => void;
   setOutputToken: (token: TokenInfo | null) => void;
@@ -15,8 +16,10 @@ type SwapState = {
   setOutputAmount: (val: string) => void;
   setIsOutputUpdating: (val: boolean) => void;
 
-  setTransaction: (tx: []) => void;
+  setTransaction: (tx: string) => void;
+  setArbTransaction: (tx: string) => void;
   clearTransaction: () => void;
+  clearArbTransaction: () => void;
 
   swapTokens: () => void;
 };
@@ -28,6 +31,7 @@ export const useSwapStore = create<SwapState>((set, get) => ({
   outputAmount: "",
   isOutputUpdating: false,
   transaction: null,
+  arb_transaction: null,
 
   setInputToken: (token) => {
     localStorage.setItem("swap.inputToken", JSON.stringify(token));
@@ -42,7 +46,9 @@ export const useSwapStore = create<SwapState>((set, get) => ({
   setIsOutputUpdating: (val) => set({ isOutputUpdating: val }),
 
   setTransaction: (tx) => set({ transaction: tx }),
+  setArbTransaction: (tx) => set({ arb_transaction: tx }),
   clearTransaction: () => set({ transaction: null }),
+  clearArbTransaction: () => set({ arb_transaction: null }),
 
   swapTokens: () => {
     const { inputToken, outputToken } = get();

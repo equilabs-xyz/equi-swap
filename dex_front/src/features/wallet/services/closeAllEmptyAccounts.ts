@@ -3,7 +3,7 @@ import {
     PublicKey,
     Transaction,
     TransactionInstruction,
-    sendAndConfirmRawTransaction,
+
 } from "@solana/web3.js";
 import {
     createCloseAccountInstruction,
@@ -54,7 +54,6 @@ export async function closeAllEmptyAccounts({
         transactions.forEach((tx) => {
             tx.recentBlockhash = blockhash;
         });
-        console.log("Transactions to be sent:", transactions);
         const signedTxs = await signAllTransactions(transactions);
 
         for (let i = 0; i < signedTxs.length; i++) {
