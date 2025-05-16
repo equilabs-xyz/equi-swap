@@ -14,7 +14,7 @@ import {useNewTokenAccountListener} from "@/features/wallet/services/useNewToken
 import {useQueryClient} from "@tanstack/react-query";
 import {useWalletUIStore} from "@/stores/wallet-ui";
 import {TokenAccount} from "@/types";
-import {PublicKey} from "@solana/web3.js";
+import {PublicKey, Transaction} from "@solana/web3.js";
 
 
 function useDebouncedCallback(callback: () => void, delay: number) {
@@ -37,9 +37,7 @@ export default function WalletLayout() {
 
 
     const {
-        solBalance,
         tokenAccounts,
-        transactions,
         loading,
         fetchData,
         setTokenAccounts,
@@ -116,13 +114,15 @@ export default function WalletLayout() {
         <div className="max-w-md mx-auto p-2 space-y-4">
             <WalletHeader publicKey={publicKey}/>
             <WalletBalanceHeader
-                solBalance={solBalance}
                 solValue={solValue}
                 walletValue={walletValue}
                 publicKey={publicKey!}
                 tokenAccounts={tokenAccounts}
-                sendTransaction={sendTransaction}
-                signAllTransactions={signAllTransactions}
+                signAllTransactions={
+                    signAllTransactions
+                        ? (txs) => signAllTransactions(txs as Transaction[])
+                        : async (txs) => Promise.resolve(txs) // fallback no-op
+                }
             />
             <WalletActions
                 publicKey={publicKey?.toBase58() ?? ""}
@@ -153,7 +153,6 @@ export default function WalletLayout() {
                         setTokenAccounts,
                     })
                 }
-                transactions={transactions}
                 address={publicKey?.toBase58() ?? ""}
             />
 

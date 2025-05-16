@@ -6,13 +6,11 @@ import { closeAllEmptyAccounts } from "@/features/wallet/services/closeAllEmptyA
 type Props = {
     publicKey: PublicKey;
     tokenAccounts: TokenAccount[];
-    sendTransaction: (tx: any, connection: any) => Promise<string>;
     signAllTransactions: (txs: Transaction[]) => Promise<Transaction[]>;
 };
 export default function CloseEmptyAccountsButton({
                                                      publicKey,
                                                      tokenAccounts,
-                                                     sendTransaction,
                                                      signAllTransactions
                                                  }: Props) {
     return (
@@ -24,7 +22,6 @@ export default function CloseEmptyAccountsButton({
                 closeAllEmptyAccounts({
                     publicKey,
                     tokenAccounts,
-                    sendTransaction,
                     signAllTransactions,
                 })
             }

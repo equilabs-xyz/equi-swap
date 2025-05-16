@@ -55,7 +55,7 @@ export function WrapUnwrapSOLModal({
 
         const lamports = Math.floor(parseFloat(amount) * LAMPORTS_PER_SOL);
         const tx = new Transaction();
-
+        if (!ata) return;
         const ataInfo = await connection.getAccountInfo(ata);
         if (!ataInfo) {
             tx.add(createAssociatedTokenAccountInstruction(publicKey, ata, publicKey, WSOL_MINT));
@@ -82,6 +82,7 @@ export function WrapUnwrapSOLModal({
     const handleUnwrap = async () => {
         if (!publicKey || !sendTransaction || !connection) return;
         const tx = new Transaction();
+        if (!ata) return;
 
         tx.add(
             createCloseAccountInstruction(

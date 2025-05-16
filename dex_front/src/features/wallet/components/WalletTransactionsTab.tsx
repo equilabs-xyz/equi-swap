@@ -11,9 +11,19 @@ import { useTransactionsStore } from "@/stores/transactionsStore";
 import { format, isToday, isYesterday } from "date-fns";
 import { WalletTransactionsTabProps } from "@/types";
 
+// ✅ Add type for transactions
+type WalletTransaction = {
+    timestamp: number;
+    amount?: string;
+    symbol?: string;
+    type?: string;
+    status?: string;
+    signature?: string;
+    picture?: string;
+};
+
 export default function WalletTransactionsTab({ address }: WalletTransactionsTabProps) {
     const {
-        walletAddress,
         setWallet,
         getTransactions,
         addTransactions,
@@ -31,7 +41,6 @@ export default function WalletTransactionsTab({ address }: WalletTransactionsTab
     const { t } = useTranslation();
     const observerRef = useRef<HTMLDivElement | null>(null);
 
-    // Set current wallet + check cache
     useEffect(() => {
         if (!address) return;
 
@@ -60,20 +69,13 @@ export default function WalletTransactionsTab({ address }: WalletTransactionsTab
         }
     }, [address]);
 
-    // Scroll-based lazy loading
     useEffect(() => {
-        if (
-            !address ||
-            loading ||
-            loadedTransactions.length >= allSignatures.length
-        )
-            return;
+        if (!address || loading || loadedTransactions.length >= allSignatures.length) return;
 
         const loadMoreTransactions = async () => {
             const start = loadedTransactions.length;
             const end = Math.min(start + 10, allSignatures.length);
             const chunk = allSignatures.slice(start, end);
-
             if (chunk.length === 0) return;
 
             setLoading(true);
@@ -95,21 +97,15 @@ export default function WalletTransactionsTab({ address }: WalletTransactionsTab
     const onIntersection = useCallback(
         (entries: IntersectionObserverEntry[]) => {
             const entry = entries[0];
-            if (
-                entry.isIntersecting &&
-                !loading &&
-                loadedTransactions.length < allSignatures.length
-            ) {
+            if (entry.isIntersecting && !loading && loadedTransactions.length < allSignatures.length) {
                 setLoadCount(Math.min(loadCount + 10, allSignatures.length));
             }
         },
-        [loadedTransactions.length, allSignatures.length, loading, setLoadCount],
+        [loadedTransactions.length, allSignatures.length, loading, setLoadCount]
     );
 
     useEffect(() => {
-        const observer = new IntersectionObserver(onIntersection, {
-            threshold: 1.0,
-        });
+        const observer = new IntersectionObserver(onIntersection, { threshold: 1.0 });
         if (observerRef.current) observer.observe(observerRef.current);
         return () => observer.disconnect();
     }, [onIntersection]);
@@ -121,28 +117,24 @@ export default function WalletTransactionsTab({ address }: WalletTransactionsTab
         return format(date, "d MMMM");
     };
 
-    const safeTransactions = Array.isArray(loadedTransactions)
+    const safeTransactions: WalletTransaction[] = Array.isArray(loadedTransactions)
         ? loadedTransactions
         : [];
 
-    if (!Array.isArray(loadedTransactions)) {
-        console.warn("⚠️ loadedTransactions is not an array:", loadedTransactions);
-    }
-
     const grouped = safeTransactions.reduce(
-        (acc, tx) => {
+        (acc: Record<string, WalletTransaction[]>, tx: WalletTransaction) => {
             const label = getDateLabel(tx.timestamp);
             if (!acc[label]) acc[label] = [];
             acc[label].push(tx);
             return acc;
         },
-        {} as Record<string, typeof safeTransactions>,
+        {}
     );
 
     const sortedGroups = Object.entries(grouped).sort(
-        ([, aTxs], [, bTxs]) => bTxs[0].timestamp - aTxs[0].timestamp,
+        ([, aTxs], [, bTxs]) =>
+            (bTxs as WalletTransaction[])[0].timestamp - (aTxs as WalletTransaction[])[0].timestamp
     );
-
 
     return (
         <ScrollArea className="min-h-[20vh] h-[100vh] max-h-[65vh] pt-4">
@@ -151,14 +143,12 @@ export default function WalletTransactionsTab({ address }: WalletTransactionsTab
                     {loading && loadedTransactions.length === 0 ? (
                         Array(3)
                             .fill(0)
-                            .map((_, i) => (
-                                <Skeleton key={i} className="h-16 w-full rounded-lg" />
-                            ))
+                            .map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)
                     ) : loadedTransactions.length > 0 ? (
                         sortedGroups.map(([label, txs]) => (
                             <div key={label}>
                                 <p className="text-xs text-muted-foreground uppercase mb-1">{label}</p>
-                                {txs.map((tx, index) => {
+                                {(txs as WalletTransaction[]).map((tx: WalletTransaction, index: number) => {
                                     const amount = parseFloat(tx.amount ?? "0");
                                     const symbol = tx.symbol ?? "wallet.unknown";
                                     const status =
@@ -204,7 +194,11 @@ export default function WalletTransactionsTab({ address }: WalletTransactionsTab
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className={`font-medium ${amount > 0 ? "text-green-500" : "text-red-500"}`}>
+                                                    <p
+                                                        className={`font-medium ${
+                                                            amount > 0 ? "text-green-500" : "text-red-500"
+                                                        }`}
+                                                    >
                                                         {amount > 0 ? "+" : "-"}
                                                         {Math.abs(amount).toLocaleString(undefined, {
                                                             maximumFractionDigits: 4,

@@ -118,7 +118,7 @@ export default function SwapLayout() {
     swapTokens();
     setRotated((prev) => !prev);
   };
-  const swap = useHandleSwapClick(connection, () => fetchBalances(publicKey!));
+  const swap = useHandleSwapClick(() => fetchBalances(publicKey!));
 
 
   const [modalOpen, setModalOpen] = useState(false);

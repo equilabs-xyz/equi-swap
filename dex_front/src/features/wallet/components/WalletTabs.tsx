@@ -11,7 +11,6 @@ export default function WalletTabs({
   setShowSend,
   mode,
   handleCloseAccount,
-  transactions,
   address,
 }: WalletTabsProps) {
   const { t } = useTranslation();
@@ -38,7 +37,6 @@ export default function WalletTabs({
       <TabsContent value="transactions">
         <WalletTransactionsTab
           loading={loading}
-          transactions={transactions}
           address={address}
         />{" "}
       </TabsContent>

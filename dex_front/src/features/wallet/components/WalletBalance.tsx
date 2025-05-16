@@ -1,6 +1,5 @@
 import { Eye, EyeOff, Settings2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
 import { useWalletUIStore } from "@/stores/wallet-ui.ts";
 import { useTranslation } from "react-i18next";
 import CloseEmptyAccountsButton from "@/features/wallet/components/CloseEmptyAccountsButton";
@@ -8,21 +7,17 @@ import {TokenAccount} from "@/types";
 import {PublicKey, Transaction} from "@solana/web3.js";
 
 export default function WalletBalanceHeader({
-                                              solBalance,
                                               solValue,
                                               walletValue,
                                               publicKey,
                                               tokenAccounts,
-                                              sendTransaction,
                                                 signAllTransactions
                                             }: {
-  solBalance: number;
   solValue: any;
   walletValue: any;
   publicKey: PublicKey;
   tokenAccounts: TokenAccount[];
-  sendTransaction: (tx: any, connection: any) => Promise<string>;
-    signAllTransactions: (txs: Transaction[]) => Promise<Transaction[]>;
+  signAllTransactions: (txs: Transaction[]) => Promise<Transaction[]>;
 
 }) {
   const { showBalance, setShowBalance, showUsd, setShowUsd, mode } = useWalletUIStore();
@@ -62,7 +57,6 @@ export default function WalletBalanceHeader({
                       <CloseEmptyAccountsButton
                           publicKey={publicKey!}
                           tokenAccounts={tokenAccounts}
-                          sendTransaction={sendTransaction}
                           signAllTransactions={signAllTransactions} // ✅ pass here
                       />
 

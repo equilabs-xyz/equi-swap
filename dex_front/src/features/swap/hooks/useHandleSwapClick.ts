@@ -9,8 +9,7 @@ import { toast } from "sonner";
 const JITO_BUNDLE_URL = " https://mainnet.block-engine.jito.wtf";
 
 export const useHandleSwapClick = (
-    refetchBalances: () => Promise<void>
-) => {
+refetchBalances: () => Promise<void>) => {
     const { publicKey, signTransaction } = useWallet();
     const { transaction, arb_transaction, clearTransaction, clearArbTransaction } = useSwapStore();
 

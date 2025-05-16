@@ -1,5 +1,4 @@
 import { TokenAccount } from "./token";
-import { WalletTransaction } from "./transaction";
 import { WalletMode } from "./wallet";
 import {PublicKey} from "@solana/web3.js";
 export interface WalletTabsProps {
@@ -9,7 +8,6 @@ export interface WalletTabsProps {
     setShowSend: (open: boolean) => void;
     mode: WalletMode;
     handleCloseAccount: (account: TokenAccount) => void;
-    transactions: WalletTransaction[];
     address: string;
 }
 

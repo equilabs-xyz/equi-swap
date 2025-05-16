@@ -19,6 +19,5 @@ export interface WalletTransaction {
 
 export interface WalletTransactionsTabProps {
     loading: boolean;
-    transactions: WalletTransaction[];
     address: string;
 }
