@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use crate::TOKEN_METADATA_CACHE;
 use dashmap::DashMap;
 use reqwest::Client;
-use warp::{http::StatusCode, reply, Rejection, Reply};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use crate::TOKEN_METADATA_CACHE;
+use std::collections::HashMap;
+use warp::{http::StatusCode, reply, Rejection, Reply};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct TokenSearchResult {
@@ -95,11 +95,7 @@ pub async fn search_tokens_handler(
         "success": true,
         "results": sorted_tokens
     })))
-
-
-
 }
-
 
 pub async fn search_token_by_mint_handler(
     query: HashMap<String, String>,
@@ -121,16 +117,21 @@ pub async fn search_token_by_mint_handler(
     let cache = TOKEN_METADATA_CACHE.get_or_init(DashMap::new);
 
     if let Some(entry) = cache.get(&mint) {
-        println!("[search_tokens] Found token metadata in cache for mint: {}", mint);
+        println!(
+            "[search_tokens] Found token metadata in cache for mint: {}",
+            mint
+        );
         return Ok(warp::reply::json(&serde_json::json!({
             "success": true,
             "result": entry.clone()
         })));
     }
 
-
     if let Some(token) = fetch_token_from_moralis(&mint).await {
-        println!("[search_tokens] Found token metadata from Moralis for mint: {}", mint);
+        println!(
+            "[search_tokens] Found token metadata from Moralis for mint: {}",
+            mint
+        );
         cache.insert(mint.clone(), token.clone());
         return Ok(warp::reply::json(&serde_json::json!({
             "success": true,
@@ -144,11 +145,13 @@ pub async fn search_token_by_mint_handler(
     })))
 }
 
-
 async fn fetch_token_from_moralis(mint: &str) -> Option<TokenSearchResult> {
     let moralis_api_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6ImI0ZjkyYmEzLWJkZDgtNDZjYi04MzQyLWRkYTA3YWNiYmNiNiIsIm9yZ0lkIjoiNDQxOTE2IiwidXNlcklkIjoiNDU0NjYyIiwidHlwZUlkIjoiYzA5YWU5MDYtOGMwYy00YWZhLWE5NDEtMzdmMmYxOTEyZDYzIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3NDQ3Mjk3NDcsImV4cCI6NDkwMDQ4OTc0N30.odQxhX-qvBTeFZmKJONFmx8El9x4qwtMbtd38k_KKsU";
     let client = Client::new();
-    let url = format!("https://solana-gateway.moralis.io/token/mainnet/{}/metadata", mint);
+    let url = format!(
+        "https://solana-gateway.moralis.io/token/mainnet/{}/metadata",
+        mint
+    );
 
     match client
         .get(&url)
@@ -172,7 +175,6 @@ async fn fetch_token_from_moralis(mint: &str) -> Option<TokenSearchResult> {
         _ => None,
     }
 }
-
 
 pub async fn get_capped_tokens_handler(
     query: HashMap<String, String>,
@@ -226,6 +228,3 @@ pub async fn get_capped_tokens_handler(
         ))),
     }
 }
-
-
-

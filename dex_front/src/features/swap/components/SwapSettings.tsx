@@ -3,36 +3,30 @@ import { useEffect, useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-
-const SLIPPAGE_KEY = "swap:maxSlippage";
-const PRIORITY_KEY = "swap:priorityFee"; // stored in lamports
+import { Switch } from "@/components/ui/switch";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 export function SwapSettingsDialog() {
     const [open, setOpen] = useState(false);
-    const [slippage, setSlippage] = useState("0.5");
-    const [priorityFeeSOL, setPriorityFeeSOL] = useState("0.00005"); // show as SOL
-    const WRAP_SOL_KEY = "swap:wrapWSOL";
-    const [wrapWSOL, setWrapWSOL] = useState(true);
-    // Load saved settings
-    useEffect(() => {
-        const savedSlippage = localStorage.getItem(SLIPPAGE_KEY);
-        const savedPriority = localStorage.getItem(PRIORITY_KEY);
-        const savedWrap = localStorage.getItem(WRAP_SOL_KEY);
+    const {
+        slippage,
+        priorityFeeSOL,
+        wrapWSOL,
+        useJitoFee,
+        setSlippage,
+        setPriorityFeeSOL,
+        setWrapWSOL,
+        setUseJitoFee,
+        loadSettings,
+        persistSettings,
+    } = useSettingsStore();
 
-        if (savedSlippage) setSlippage(savedSlippage);
-        if (savedPriority) {
-            const solVal = (parseInt(savedPriority, 10) / 1_000_000).toString();
-            setPriorityFeeSOL(solVal);
-        }
-        if (savedWrap !== null) setWrapWSOL(savedWrap === "true");
+    useEffect(() => {
+        loadSettings();
     }, []);
 
     const saveSettings = () => {
-        const lamports = Math.round(parseFloat(priorityFeeSOL || "0") * 1_000_000); // convert SOL -> μLamports
-        localStorage.setItem(SLIPPAGE_KEY, slippage);
-        localStorage.setItem(PRIORITY_KEY, lamports.toString());
-        localStorage.setItem(WRAP_SOL_KEY, wrapWSOL.toString());
-
+        persistSettings();
         setOpen(false);
     };
 
@@ -42,8 +36,10 @@ export function SwapSettingsDialog() {
                 <button className="flex items-center gap-2 px-3 py-1 rounded-md text-muted-foreground border border-input text-sm bg-background hover:bg-muted transition">
                     <SlidersHorizontal className="w-3.5 h-3.5" />
                     <span className="text-xs">
-            {priorityFeeSOL} SOL • {slippage}%
-          </span>
+                        {useJitoFee
+                            ? `${"JITO AUTO FEE"} • ${slippage}%`
+                            : `${priorityFeeSOL} SOL • ${slippage}%`}
+                    </span>
                 </button>
             </DialogTrigger>
 
@@ -52,16 +48,28 @@ export function SwapSettingsDialog() {
 
                 <div className="space-y-3 text-sm">
 
-                    <div>
-                        <label className="text-muted-foreground mb-1 block">Priority Fee (SOL)</label>
-                        <Input
-                            type="number"
-                            step="0.000001"
-                            min="0"
-                            value={priorityFeeSOL}
-                            onChange={(e) => setPriorityFeeSOL(e.target.value)}
-                            className="bg-input border-border text-foreground text-sm"
-                        />
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <label className="text-muted-foreground text-sm">Use JITO Fee</label>
+                            <Switch
+                                checked={useJitoFee}
+                                onCheckedChange={(val) => setUseJitoFee(val)}
+                            />
+                        </div>
+
+                        {!useJitoFee && (
+                            <div>
+                                <label className="text-muted-foreground mb-1 block">Priority Fee (SOL)</label>
+                                <Input
+                                    type="number"
+                                    step="0.000001"
+                                    min="0"
+                                    value={priorityFeeSOL}
+                                    onChange={(e) => setPriorityFeeSOL(e.target.value)}
+                                    className="bg-input border-border text-foreground text-sm"
+                                />
+                            </div>
+                        )}
                     </div>
 
                     <div>
@@ -91,7 +99,13 @@ export function SwapSettingsDialog() {
                         </div>
                     </div>
 
-
+                    <div className="flex items-center justify-between">
+                        <label className="text-muted-foreground text-sm">Wrap SOL Automatically</label>
+                        <Switch
+                            checked={wrapWSOL}
+                            onCheckedChange={(val) => setWrapWSOL(val)}
+                        />
+                    </div>
                 </div>
 
                 <Button onClick={saveSettings} size="sm" className="w-full mt-1">
@@ -100,19 +114,4 @@ export function SwapSettingsDialog() {
             </DialogContent>
         </Dialog>
     );
-}
-
-
-export function getMaxSlippage(): number {
-    const stored = localStorage.getItem("swap:maxSlippage");
-    return stored ? parseFloat(stored) : 0.5;
-}
-
-export function getPriorityFee(): number {
-    const stored = localStorage.getItem("swap:priorityFee");
-    return stored ? parseInt(stored, 10) / 1_000_000 : 0.0001;
-}
-export function getWrapWSOL(): boolean {
-    const stored = localStorage.getItem("swap:wrapWSOL");
-    return stored === "true";
 }

@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 use warp::{Rejection, Reply};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -53,9 +53,7 @@ pub async fn get_wallet_data(address: &str) -> anyhow::Result<Value> {
     Ok(body)
 }
 
-pub async fn wallet_data_handler(
-    query: HashMap<String, String>,
-) -> Result<impl Reply, Rejection> {
+pub async fn wallet_data_handler(query: HashMap<String, String>) -> Result<impl Reply, Rejection> {
     let address = query.get("address").cloned().unwrap_or_default();
 
     match get_wallet_data(&address).await {

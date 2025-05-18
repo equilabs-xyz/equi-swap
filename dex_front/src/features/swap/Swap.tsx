@@ -11,8 +11,6 @@ import PriceChart from "./components/PriceChart";
 import { useSwapStore } from "@/stores/swap-ui";
 import { TopTokens as topTokens } from "@/data/top-tokens";
 import {
-  getMaxSlippage,
-  getPriorityFee,
   SwapSettingsDialog,
 } from "@/features/swap/components/SwapSettings";
 import { useQuoteWebSocket } from "@/features/swap/hooks/useQuoteWebSocket";
@@ -21,6 +19,7 @@ import {WrapUnwrapSOLModal} from "@/features/swap/components/WrapUnwrapSOLModal.
 import {SolWsolBalance} from "@/features/swap/components/SolWsolBalance.tsx";
 import {useTokenBalancesStore} from "@/stores/token-balances.ts";
 import {ScrollArea} from "@/components/ui/scroll-area.tsx";
+import {useSettingsStore} from "@/stores/settingsStore.ts";
 
 const SOL_MINT = "11111111111111111111111111111111";
 const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
@@ -43,6 +42,10 @@ export default function SwapLayout() {
     isOutputUpdating,
     swapTokens,
   } = useSwapStore();
+
+  const slippage = useSettingsStore(s => s.slippage);
+  const priorityFeeSOL = useSettingsStore(s => s.priorityFeeSOL);
+  const useJitoFee = useSettingsStore(s => s.useJitoFee);
 
   const shortKey = publicKey
       ? `${publicKey.toBase58().slice(0, 4)}...${publicKey.toBase58().slice(-4)}`
@@ -108,12 +111,14 @@ export default function SwapLayout() {
             x_mint: getSwapMint(inputToken?.address ?? ""),
             y_mint: getSwapMint(outputToken?.address ?? ""),
             amount: inAmountNum,
-            slippage: getMaxSlippage(),
-            priority_fee: getPriorityFee(),
             onQuote,
+            slippage: slippage,
+            priorityFeeSOL: priorityFeeSOL,
+            useJitoFee: useJitoFee,
           }
           : null
   );
+
 
   const handleSwapClick = () => {
     swapTokens();

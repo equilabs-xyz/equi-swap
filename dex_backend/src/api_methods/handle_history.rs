@@ -1,23 +1,23 @@
-use anyhow::Result;
-use serde::{Deserialize, Serialize};
-use solana_sdk::pubkey::Pubkey;
 use crate::{REQWEST_CLIENT, SEEN_SIGNATURES};
+use anyhow::Result;
+use dashmap::DashSet;
+use dotenv::dotenv;
+use futures::stream::{iter, FuturesUnordered, StreamExt};
+use mpl_token_metadata::accounts::Metadata;
+use mpl_token_metadata::ID as TOKEN_METADATA_PROGRAM_ID;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use solana_rpc_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::commitment_config::CommitmentConfig;
+use solana_sdk::pubkey::Pubkey;
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use dotenv::dotenv;
-use serde_json::{json, Value};
+use std::time::Instant;
 use warp::http::StatusCode;
 use warp::Reply;
-use futures::stream::{iter, FuturesUnordered, StreamExt};
-use mpl_token_metadata::ID as TOKEN_METADATA_PROGRAM_ID;
-use mpl_token_metadata::accounts::Metadata;
-use reqwest::Client;
-use solana_rpc_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::commitment_config::CommitmentConfig;
-use std::time::Instant;
-use dashmap::DashSet;
 
 #[derive(Debug, Deserialize)]
 pub struct HistoryRequest {
@@ -25,7 +25,6 @@ pub struct HistoryRequest {
     pub before: Option<String>,
     pub limit: Option<usize>,
 }
-
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SignatureRequest {
@@ -38,13 +37,11 @@ pub struct SignatureResponse {
     pub signatures: Vec<String>,
 }
 
-
 #[derive(Debug, Deserialize)]
 pub struct TransactionParseRequest {
     pub address: String,
     pub signatures: Vec<String>,
 }
-
 
 #[derive(Debug, Deserialize)]
 pub struct ChainAccount {
@@ -88,7 +85,6 @@ pub struct SolflareSignature {
     pub public_key: String,
 }
 
-
 #[derive(Debug, Serialize)]
 pub struct TokenInfo {
     pub id: String,
@@ -117,16 +113,17 @@ const MAX_RETRIES: usize = 3;
 const RETRY_DELAYS: [u64; 3] = [1, 1, 1];
 const SOL_MINT: &str = "So11111111111111111111111111111111111111112";
 
-
-
 pub async fn fetch_token_metadata(mint: &str) -> Option<TokenMetadata> {
     println!("Fetching token metadata for mint: {}", mint);
 
-    let fetch_token_metadata  = Instant::now();
+    let fetch_token_metadata = Instant::now();
     // First: try local metadata API
     let client = Client::new();
     if let Ok(response) = client
-        .get(&format!("http://localhost:7777/api/searchTokensByMint?query={}", mint))
+        .get(&format!(
+            "http://localhost:7777/api/searchTokensByMint?query={}",
+            mint
+        ))
         .send()
         .await
     {
@@ -148,7 +145,6 @@ pub async fn fetch_token_metadata(mint: &str) -> Option<TokenMetadata> {
                         logoURI: logo_uri.to_string(),
                         decimals: decimals as u8,
                     });
-
                 }
             }
         }
@@ -188,14 +184,12 @@ pub async fn fetch_token_metadata(mint: &str) -> Option<TokenMetadata> {
     //     }
     // }
 
-
     None
 }
 
-
 async fn async_normalize_transaction(tx_data: Value, wallet: &Pubkey) -> Option<NormalizedTx> {
     println!("Normalizing transaction data for wallet: {}", wallet);
-    let async_normalize_transaction  = Instant::now();
+    let async_normalize_transaction = Instant::now();
 
     let meta = tx_data.get("meta")?.as_object()?;
     let block_time = tx_data.get("blockTime")?.as_u64()?;
@@ -207,15 +201,24 @@ async fn async_normalize_transaction(tx_data: Value, wallet: &Pubkey) -> Option<
     let mut balance_changes = Vec::new();
 
     // Process SOL balance changes
-    if let Some(wallet_index) = account_keys.iter().position(|k| k.as_str() == Some(&wallet_address)) {
+    if let Some(wallet_index) = account_keys
+        .iter()
+        .position(|k| k.as_str() == Some(&wallet_address))
+    {
         let pre_balances = meta.get("preBalances")?.as_array()?;
         let post_balances = meta.get("postBalances")?.as_array()?;
 
         println!("{:?}", pre_balances);
         println!("{:?}", post_balances);
 
-        let pre_sol = pre_balances.get(wallet_index).and_then(|v| v.as_u64()).unwrap_or(0);
-        let post_sol = post_balances.get(wallet_index).and_then(|v| v.as_u64()).unwrap_or(0);
+        let pre_sol = pre_balances
+            .get(wallet_index)
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let post_sol = post_balances
+            .get(wallet_index)
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
         let delta_sol = post_sol as i64 - pre_sol as i64;
 
         if delta_sol != 0 {
@@ -231,7 +234,11 @@ async fn async_normalize_transaction(tx_data: Value, wallet: &Pubkey) -> Option<
         // Process fee as separate balance change
         let fee = meta.get("fee").and_then(|f| f.as_u64()).unwrap_or(0);
         if fee > 0 {
-            balance_changes.push(create_sol_change(&wallet_address, &"solana:101/fee".to_string(), fee as f64 / 1e9));
+            balance_changes.push(create_sol_change(
+                &wallet_address,
+                &"solana:101/fee".to_string(),
+                fee as f64 / 1e9,
+            ));
         }
     }
 
@@ -264,13 +271,19 @@ async fn async_normalize_transaction(tx_data: Value, wallet: &Pubkey) -> Option<
             continue;
         }
 
-
-        let metadata = metadata_map.get(&mint).cloned().unwrap_or_else(|| TokenMetadata {
-            name: "Unknown Token".into(),
-            symbol: "UNKNOWN".into(),
-            logoURI: "".into(),
-            decimals: get_decimals_from_balance(&pre_token_balances, &post_token_balances, &mint),
-        });
+        let metadata = metadata_map
+            .get(&mint)
+            .cloned()
+            .unwrap_or_else(|| TokenMetadata {
+                name: "Unknown Token".into(),
+                symbol: "UNKNOWN".into(),
+                logoURI: "".into(),
+                decimals: get_decimals_from_balance(
+                    &pre_token_balances,
+                    &post_token_balances,
+                    &mint,
+                ),
+            });
 
         let (from, to) = if delta > 0.0 {
             ("unknown", &wallet_address)
@@ -310,22 +323,28 @@ async fn async_normalize_transaction(tx_data: Value, wallet: &Pubkey) -> Option<
         },
         chainMeta: ChainMeta {
             transactionId: signature.to_string(),
-            status: if meta.get("err")?.is_null() { "success" } else { "failed" }.into(),
-            networkFee: meta.get("fee").and_then(|f| f.as_u64()).unwrap_or(0).to_string(),
+            status: if meta.get("err")?.is_null() {
+                "success"
+            } else {
+                "failed"
+            }
+            .into(),
+            networkFee: meta
+                .get("fee")
+                .and_then(|f| f.as_u64())
+                .unwrap_or(0)
+                .to_string(),
         },
     })
 }
 
 fn sum_token_balances(balances: &[Value], owner: &str, mint: &str) -> f64 {
-    balances.iter()
-        .filter(|b|
-            b["owner"].as_str() == Some(owner) &&
-                b["mint"].as_str() == Some(mint)
-        )
+    balances
+        .iter()
+        .filter(|b| b["owner"].as_str() == Some(owner) && b["mint"].as_str() == Some(mint))
         .filter_map(|b| b["uiTokenAmount"]["uiAmount"].as_f64())
         .sum()
 }
-
 
 fn get_decimals_from_balance(pre: &[Value], post: &[Value], mint: &str) -> u8 {
     // Check pre balances first
@@ -341,7 +360,7 @@ async fn get_parsed_transaction(signature: &str) -> Result<Value> {
     println!("Fetching transaction data for signature: {}", signature);
     let mut attempts = 0;
     let mut rpc_url = "http://frankfurt.o7node.com:7799";
-    let get_parsed_transaction  = Instant::now();
+    let get_parsed_transaction = Instant::now();
     loop {
         let request_body = json!({
             "jsonrpc": "2.0",
@@ -357,7 +376,9 @@ async fn get_parsed_transaction(signature: &str) -> Result<Value> {
             ]
         });
 
-        match REQWEST_CLIENT.get().unwrap()
+        match REQWEST_CLIENT
+            .get()
+            .unwrap()
             .post(rpc_url)
             .json(&request_body)
             .send()
@@ -441,7 +462,10 @@ async fn get_parsed_transaction(signature: &str) -> Result<Value> {
 //     }
 // }
 
-pub async fn fetch_solflare_signatures(pubkey: &Pubkey, limit: usize) -> Result<Vec<SolflareSignature>> {
+pub async fn fetch_solflare_signatures(
+    pubkey: &Pubkey,
+    limit: usize,
+) -> Result<Vec<SolflareSignature>> {
     let client = Client::new();
     let url = format!(
         "https://activity-api.solflare.com/v1/signatures?address={}&network=mainnet&ignoreFailed=0&limit={}",
@@ -479,11 +503,23 @@ pub async fn fetch_solflare_signatures(pubkey: &Pubkey, limit: usize) -> Result<
             Ok(json) => {
                 if let Some(data) = json["data"].as_array() {
                     for entry in data {
-                        let hash = entry.get("hash").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                        let block_time = entry.get("blockTime").and_then(|v| v.as_u64()).unwrap_or(0);
+                        let hash = entry
+                            .get("hash")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let block_time =
+                            entry.get("blockTime").and_then(|v| v.as_u64()).unwrap_or(0);
                         let slot = entry.get("slot").and_then(|v| v.as_u64()).unwrap_or(0);
-                        let public_key = entry.get("publicKey").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                        let err = entry.get("err").and_then(|v| v.as_str()).map(|s| s.to_string());
+                        let public_key = entry
+                            .get("publicKey")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let err = entry
+                            .get("err")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string());
 
                         if hash.is_empty() {
                             continue; // Skip malformed entries
@@ -585,7 +621,6 @@ async fn get_parsed_transaction_solflare(
         }
     }
 
-
     Ok(parsed_txs)
 }
 pub async fn handle_parse_transactions(
@@ -616,9 +651,10 @@ pub async fn handle_parse_transactions(
     }
 }
 
-
-
-pub fn parse_solflare_tx(tx: serde_json::Map<String, Value>, wallet: &Pubkey) -> Option<NormalizedTx> {
+pub fn parse_solflare_tx(
+    tx: serde_json::Map<String, Value>,
+    wallet: &Pubkey,
+) -> Option<NormalizedTx> {
     let hash = tx.get("hash")?.as_str().unwrap_or_default();
     let wallet_str = wallet.to_string();
 
@@ -656,7 +692,8 @@ pub fn parse_solflare_tx(tx: serde_json::Map<String, Value>, wallet: &Pubkey) ->
     let (mut sender, mut recipient) = ("unknown".into(), "unknown".into());
     if let Some(expanded) = tx.get("expandedData") {
         if let Some(details) = expanded.get("details").and_then(|d| d.as_array()) {
-            sender = details.get(0)
+            sender = details
+                .get(0)
                 .and_then(|d| d.get("props"))
                 .and_then(|p| p.as_array())
                 .and_then(|p| p.iter().find(|i| i["name"] == "content"))
@@ -664,7 +701,8 @@ pub fn parse_solflare_tx(tx: serde_json::Map<String, Value>, wallet: &Pubkey) ->
                 .unwrap_or("unknown")
                 .to_string();
 
-            recipient = details.get(2)
+            recipient = details
+                .get(2)
                 .and_then(|d| d.get("props"))
                 .and_then(|p| p.as_array())
                 .and_then(|p| p.iter().find(|i| i["name"] == "content"))
@@ -680,7 +718,8 @@ pub fn parse_solflare_tx(tx: serde_json::Map<String, Value>, wallet: &Pubkey) ->
         .find(|p| p["name"] == "balances")
         .and_then(|p| p["value"]["props"].as_array());
 
-    let status = balances.as_ref()
+    let status = balances
+        .as_ref()
         .and_then(|b| b.iter().find(|p| p["name"] == "failedText"))
         .map(|p| p["value"].as_str() == Some("Failed"))
         .unwrap_or(false);
@@ -698,7 +737,8 @@ pub fn parse_solflare_tx(tx: serde_json::Map<String, Value>, wallet: &Pubkey) ->
     };
 
     // Process positive balances (received)
-    if let Some(positives) = balances.as_ref()
+    if let Some(positives) = balances
+        .as_ref()
         .and_then(|b| b.iter().find(|p| p["name"] == "positives"))
         .and_then(|p| p["value"].as_array())
     {
@@ -721,7 +761,8 @@ pub fn parse_solflare_tx(tx: serde_json::Map<String, Value>, wallet: &Pubkey) ->
     }
 
     // Process negative balances (sent)
-    if let Some(negatives) = balances.as_ref()
+    if let Some(negatives) = balances
+        .as_ref()
         .and_then(|b| b.iter().find(|p| p["name"] == "negatives"))
         .and_then(|p| p["value"].as_array())
     {
@@ -744,7 +785,8 @@ pub fn parse_solflare_tx(tx: serde_json::Map<String, Value>, wallet: &Pubkey) ->
     }
 
     // Parse network fee
-    let fee = tx.get("fee")
+    let fee = tx
+        .get("fee")
         .and_then(|v| match v {
             Value::Number(n) => Some(n.to_string()),
             Value::String(s) => Some(s.clone()),
@@ -766,7 +808,6 @@ pub fn parse_solflare_tx(tx: serde_json::Map<String, Value>, wallet: &Pubkey) ->
         },
     })
 }
-
 
 async fn fetch_metadata_concurrently(mints: HashSet<String>) -> HashMap<String, TokenMetadata> {
     println!("Fetching metadata for mints: {:?}", mints);
@@ -812,7 +853,10 @@ pub async fn handle_history(req: HistoryRequest) -> Result<impl Reply, warp::Rej
         let solflare_sigs = match fetch_solflare_signatures(&pubkey, limit).await {
             Ok(sigs) => sigs,
             Err(err) => {
-                eprintln!("Failed to fetch Solflare signatures for {}: {}", pubkey, err);
+                eprintln!(
+                    "Failed to fetch Solflare signatures for {}: {}",
+                    pubkey, err
+                );
                 continue;
             }
         };
@@ -821,28 +865,28 @@ pub async fn handle_history(req: HistoryRequest) -> Result<impl Reply, warp::Rej
 
         println!("Fetched signatures for pubkey: {:?}", signatures);
 
-        let txs: Vec<NormalizedTx> = match get_parsed_transaction_solflare(signatures, &pubkey).await {
-            Ok(txs) => txs,
-            Err(err) => {
-                eprintln!("Error processing tx: {}", err);
-                vec![]
-            }
-        };
+        let txs: Vec<NormalizedTx> =
+            match get_parsed_transaction_solflare(signatures, &pubkey).await {
+                Ok(txs) => txs,
+                Err(err) => {
+                    eprintln!("Error processing tx: {}", err);
+                    vec![]
+                }
+            };
 
         all_tx.extend(txs);
-
-
-
     }
 
-    println!("[timing] Total handle_history duration: {:?}", total_start.elapsed());
+    println!(
+        "[timing] Total handle_history duration: {:?}",
+        total_start.elapsed()
+    );
 
     Ok(warp::reply::with_status(
         warp::reply::json(&PhantomHistoryResponse { results: all_tx }),
         StatusCode::OK,
     ))
 }
-
 
 pub async fn handle_signatures(req: SignatureRequest) -> Result<impl Reply, warp::Rejection> {
     let pubkey = match Pubkey::from_str(&req.address) {
@@ -875,12 +919,6 @@ pub async fn handle_signatures(req: SignatureRequest) -> Result<impl Reply, warp
     }
 }
 
-
-
-
-
-
-
 fn create_sol_change(from: &String, to: &String, amount: f64) -> BalanceChange {
     BalanceChange {
         amount: amount.to_string(),
@@ -896,7 +934,13 @@ fn create_sol_change(from: &String, to: &String, amount: f64) -> BalanceChange {
     }
 }
 
-fn create_token_change(from: &String, to: &String, amount: f64, mint: &String, decimals: u8) -> BalanceChange {
+fn create_token_change(
+    from: &String,
+    to: &String,
+    amount: f64,
+    mint: &String,
+    decimals: u8,
+) -> BalanceChange {
     BalanceChange {
         amount: amount.to_string(),
         from: format_address(from),
@@ -917,8 +961,6 @@ fn format_address(address: &String) -> String {
 
 const SOL_LOGO: &str = "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png";
 
-
-
 use tokio;
 use tokio::sync::Semaphore;
 
@@ -929,9 +971,9 @@ async fn test_token_metadata_resolution() {
     let test_cases = vec![
         ("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "USDC"), // Known: USDC
         ("So11111111111111111111111111111111111111112", "SOL"),   // Native SOL
-        ("BPKmXu2qwDjMNEQnqmNPvBYCshgVmJVCe624JnVRP7MJ", ""),      // Unknown/local failure → on-chain
-        ("DVuaDuQdPZ6H49inC2Xoyx7BpLAAJTPPChSfHuGpy8X4", ""),      // Possibly non-listed
-        ("11111111111111111111111111111111", ""),                 // Likely invalid
+        ("BPKmXu2qwDjMNEQnqmNPvBYCshgVmJVCe624JnVRP7MJ", ""), // Unknown/local failure → on-chain
+        ("DVuaDuQdPZ6H49inC2Xoyx7BpLAAJTPPChSfHuGpy8X4", ""), // Possibly non-listed
+        ("11111111111111111111111111111111", ""),             // Likely invalid
     ];
 
     for (mint, expected_symbol) in test_cases {
@@ -953,11 +995,9 @@ async fn test_token_metadata_resolution() {
 
                 if !expected_symbol.is_empty() {
                     assert_eq!(
-                        metadata.symbol,
-                        expected_symbol,
+                        metadata.symbol, expected_symbol,
                         "Expected symbol {} for mint {}",
-                        expected_symbol,
-                        mint
+                        expected_symbol, mint
                     );
                 }
             }

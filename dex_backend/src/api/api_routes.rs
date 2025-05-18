@@ -1,8 +1,13 @@
+use crate::api_methods::handle_history::{
+    handle_history, handle_parse_transactions, handle_signatures,
+};
+use crate::api_methods::jito::handle_jito_tip_floor;
+use crate::api_methods::search_tokens::{
+    get_capped_tokens_handler, search_token_by_mint_handler, search_tokens_handler,
+};
+use crate::api_methods::wallet_data::wallet_data_handler;
 use std::collections::HashMap;
 use warp::Filter;
-use crate::api_methods::handle_history::{handle_history, handle_parse_transactions, handle_signatures};
-use crate::api_methods::search_tokens::{get_capped_tokens_handler, search_token_by_mint_handler, search_tokens_handler};
-use crate::api_methods::wallet_data::wallet_data_handler;
 
 pub fn api_routes() -> warp::filters::BoxedFilter<(impl warp::Reply,)> {
     let search_tokens_by_name = warp::path("api")
@@ -10,8 +15,6 @@ pub fn api_routes() -> warp::filters::BoxedFilter<(impl warp::Reply,)> {
         .and(warp::get())
         .and(warp::query::<HashMap<String, String>>())
         .and_then(search_tokens_handler);
-
-
 
     let search_tokens_by_mint = warp::path("api")
         .and(warp::path("searchTokensByMint"))
@@ -47,8 +50,16 @@ pub fn api_routes() -> warp::filters::BoxedFilter<(impl warp::Reply,)> {
         .and(warp::body::json())
         .and_then(handle_parse_transactions);
 
+    let jito_tip_floor_route = warp::path!("api" / "fetchJitoTipFloor")
+        .and(warp::get())
+        .and_then(handle_jito_tip_floor);
 
-
-
-    search_tokens_by_mint.or(search_tokens_by_name).or(handle_history_route).or(wallet_route).or(signatures_route).or(parse_transactions_route).boxed()
+    search_tokens_by_mint
+        .or(search_tokens_by_name)
+        .or(handle_history_route)
+        .or(wallet_route)
+        .or(signatures_route)
+        .or(parse_transactions_route)
+        .or(jito_tip_floor_route)
+        .boxed()
 }

@@ -1,7 +1,7 @@
-use tokio::time::{interval, Duration};
+use futures::future::join_all;
 use reqwest::Client;
 use tokio::task;
-use futures::future::join_all;
+use tokio::time::{interval, Duration};
 
 pub fn spawn_rpc_health_checker() {
     task::spawn(async {
@@ -14,10 +14,10 @@ pub fn spawn_rpc_health_checker() {
             println!("[rpc-check] Pinging {} RPC endpoints...", rpcs.len());
 
             let checks = rpcs.iter().map(|&url| {
-
                 let client = &client;
                 async move {
-                    let is_ok = client.post(url)
+                    let is_ok = client
+                        .post(url)
                         .json(&serde_json::json!({
                             "jsonrpc": "2.0",
                             "id": 1,
@@ -41,7 +41,6 @@ pub fn spawn_rpc_health_checker() {
         }
     });
 }
-
 
 fn get_all_rpcs() -> Vec<&'static str> {
     vec![
