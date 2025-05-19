@@ -61,6 +61,7 @@ export default function SwapLayout() {
   const { connection } = useConnection();
 
   useEffect(() => {
+
     const interval = setInterval(() => {
       setChartRefreshTrigger((prev) => prev + 1);
     }, 15000);
