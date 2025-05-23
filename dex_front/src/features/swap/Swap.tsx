@@ -45,7 +45,7 @@ export default function SwapLayout() {
 
   const slippage = useSettingsStore(s => s.slippage);
   const priorityFeeSOL = useSettingsStore(s => s.priorityFeeSOL);
-  const useJitoFee = useSettingsStore(s => s.useJitoFee);
+  const useJito = useSettingsStore(s => s.useJito);
 
   const shortKey = publicKey
       ? `${publicKey.toBase58().slice(0, 4)}...${publicKey.toBase58().slice(-4)}`
@@ -115,7 +115,7 @@ export default function SwapLayout() {
             onQuote,
             slippage: slippage,
             priorityFeeSOL: priorityFeeSOL,
-            useJitoFee: useJitoFee,
+            useJitoFee: useJito,
           }
           : null
   );

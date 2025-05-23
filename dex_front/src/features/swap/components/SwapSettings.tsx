@@ -8,15 +8,16 @@ import { useSettingsStore } from "@/stores/settingsStore";
 
 export function SwapSettingsDialog() {
     const [open, setOpen] = useState(false);
+
     const {
         slippage,
         priorityFeeSOL,
         wrapWSOL,
-        useJitoFee,
+        useJito,
         setSlippage,
         setPriorityFeeSOL,
         setWrapWSOL,
-        setUseJitoFee,
+        setUseJito,
         loadSettings,
         persistSettings,
     } = useSettingsStore();
@@ -36,10 +37,10 @@ export function SwapSettingsDialog() {
                 <button className="flex items-center gap-2 px-3 py-1 rounded-md text-muted-foreground border border-input text-sm bg-background hover:bg-muted transition">
                     <SlidersHorizontal className="w-3.5 h-3.5" />
                     <span className="text-xs">
-                        {useJitoFee
-                            ? `${"JITO AUTO FEE"} • ${slippage}%`
-                            : `${priorityFeeSOL} SOL • ${slippage}%`}
-                    </span>
+            {useJito
+                ? `JITO AUTO FEE • ${slippage}%`
+                : `${priorityFeeSOL} SOL • ${slippage}%`}
+          </span>
                 </button>
             </DialogTrigger>
 
@@ -47,19 +48,20 @@ export function SwapSettingsDialog() {
                 <h3 className="text-base font-semibold">Swap Settings</h3>
 
                 <div className="space-y-3 text-sm">
-
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                            <label className="text-muted-foreground text-sm">Use JITO Fee</label>
+                            <label className="text-muted-foreground text-sm">Use JITO</label>
                             <Switch
-                                checked={useJitoFee}
-                                onCheckedChange={(val) => setUseJitoFee(val)}
+                                checked={useJito}
+                                onCheckedChange={(val) => setUseJito(val)}
                             />
                         </div>
 
-                        {!useJitoFee && (
+                        {!useJito && (
                             <div>
-                                <label className="text-muted-foreground mb-1 block">Priority Fee (SOL)</label>
+                                <label className="text-muted-foreground mb-1 block">
+                                    Priority Fee (SOL)
+                                </label>
                                 <Input
                                     type="number"
                                     step="0.000001"
@@ -70,10 +72,13 @@ export function SwapSettingsDialog() {
                                 />
                             </div>
                         )}
+
                     </div>
 
                     <div>
-                        <label className="text-muted-foreground mb-1 block">Max Slippage (%)</label>
+                        <label className="text-muted-foreground mb-1 block">
+                            Max Slippage (%)
+                        </label>
                         <div className="flex gap-2 flex-wrap">
                             {["0.1", "0.5", "1"].map((preset) => (
                                 <button
@@ -100,7 +105,9 @@ export function SwapSettingsDialog() {
                     </div>
 
                     <div className="flex items-center justify-between">
-                        <label className="text-muted-foreground text-sm">Wrap SOL Automatically</label>
+                        <label className="text-muted-foreground text-sm">
+                            Wrap SOL Automatically
+                        </label>
                         <Switch
                             checked={wrapWSOL}
                             onCheckedChange={(val) => setWrapWSOL(val)}
