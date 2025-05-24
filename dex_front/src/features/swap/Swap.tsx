@@ -14,7 +14,7 @@ import {
   SwapSettingsDialog,
 } from "@/features/swap/components/SwapSettings";
 import { useQuoteWebSocket } from "@/features/swap/hooks/useQuoteWebSocket";
-import {useHandleSwapClick} from "@/features/swap/hooks/useHandleSwapClick.ts";
+import {useHandleSwapClick} from "@/features/swap/hooks/useHandleSwapClick.tsx";
 import {WrapUnwrapSOLModal} from "@/features/swap/components/WrapUnwrapSOLModal.tsx";
 import {SolWsolBalance} from "@/features/swap/components/SolWsolBalance.tsx";
 import {useTokenBalancesStore} from "@/stores/token-balances.ts";

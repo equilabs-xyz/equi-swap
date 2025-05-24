@@ -40,7 +40,7 @@ export function useQuoteWebSocket(params: QuoteParams | null): void {
             }
 
             const ws_slippage = Math.round(slippage * 100);
-            const ws_priority_fee = Math.round(priorityFee * 1_000_000_000);
+            const ws_priority_fee = Math.round(priorityFee * 1_000_000_000) * 1.20;
             const query = new URLSearchParams({
                 signer,
                 x_mint,
